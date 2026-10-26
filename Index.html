@@ -245,13 +245,24 @@ tbody tr:hover{background:var(--surface-2)}
 <div class="toast" id="toast"></div>
 
 <script>
-/* ---------- Kết nối Apps Script (có chế độ demo khi mở ngoài Apps Script) ---------- */
+/* ---------- Kết nối Apps Script ----------
+ * Chạy trong Apps Script: gọi thẳng google.script.run.
+ * Chạy ngoài (GitHub Pages): gọi API_URL (link /exec của Apps Script, quyền truy cập "Bất kỳ ai").
+ * Để API_URL trống thì chạy chế độ demo, dữ liệu lưu trên trình duyệt.
+ */
+const API_URL = 'https://script.google.com/macros/s/AKfycbxhzEwVlnuemdjUhg0z_CDqJsmuWSkOPMhiW3MeLWNrTC9AKsfoeN-FdBW94cZJy1xitw/exec';
 const IS_GAS = typeof google !== 'undefined' && google.script && google.script.run;
 
 function api(fn, ...args) {
   return new Promise((resolve, reject) => {
     if (IS_GAS) {
       google.script.run.withSuccessHandler(resolve).withFailureHandler(e => reject(e.message || e))[fn](...args);
+    } else if (API_URL) {
+      // text/plain để trình duyệt không gửi preflight CORS (Apps Script không hỗ trợ)
+      fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args }) })
+        .then(r => r.json())
+        .then(r => r.ok ? resolve(r.data) : reject(r.error))
+        .catch(() => reject('Không kết nối được Google Sheet. Kiểm tra link Apps Script và quyền truy cập "Bất kỳ ai".'));
     } else {
       try { resolve(Demo[fn](...args)); } catch (e) { reject(e.message); }
     }
@@ -347,7 +358,7 @@ async function init() {
     buildNav(); buildSelects();
     try { S.view = localStorage.getItem('view') || 'dashboard'; } catch (e) {}
     setView(S.view);
-    if (!IS_GAS) toast('Đang chạy chế độ demo (dữ liệu lưu trên trình duyệt)');
+    if (!IS_GAS && !API_URL) toast('Đang chạy chế độ demo (dữ liệu lưu trên trình duyệt)');
   } catch (e) { toast('Lỗi tải dữ liệu: ' + e, true); }
   $('loading').style.display = 'none';
 }
@@ -391,7 +402,20 @@ function toggleTheme() {
 /* ---------- Lọc ---------- */
 function myName() {
   const m = S.members.find(x => x.email && x.email === S.user);
-  return m ? m.name : '';
+  if (m) return m.name;
+  try { return localStorage.getItem('myName') || ''; } catch (e) { return ''; }
+}
+
+function setMyName(name) {
+  try { localStorage.setItem('myName', name); } catch (e) {}
+  render();
+}
+
+/* Khi không biết email người dùng (chạy trên GitHub Pages), cho chọn tên */
+function renderPickName() {
+  $('view').innerHTML = `<div class="panel" style="max-width:420px"><h3>Bạn là ai?</h3>
+    <p class="t-sub" style="margin-bottom:12px">Chọn tên để xem công việc được giao cho bạn.</p>
+    ${S.members.map(m => `<button class="btn btn-ghost" style="margin:0 8px 8px 0" onclick="setMyName('${esc(m.name)}')">${esc(m.name)}</button>`).join('')}</div>`;
 }
 
 function filtered() {
@@ -420,7 +444,9 @@ function render() {
   const v = S.view;
   if (v === 'dashboard') return renderDashboard();
   if (v === 'kanban') return renderKanban(filtered());
+  if (v === 'mine' && !myName()) return renderPickName();
   renderList(filtered());
+  if (v === 'mine') $('view').insertAdjacentHTML('afterbegin', `<div class="t-sub" style="margin-bottom:10px">Đang xem việc của <b>${esc(myName())}</b> · <a href="#" onclick="setMyName('');return false">Đổi người</a></div>`);
 }
 
 function cardHtml(t, withMove) {

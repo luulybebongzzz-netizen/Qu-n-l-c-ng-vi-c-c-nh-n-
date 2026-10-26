@@ -36,6 +36,26 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+/**
+ * API JSON cho giao diện chạy ngoài Apps Script (GitHub Pages).
+ * Gửi POST với body dạng text: {"fn": "saveTask", "args": [...]}
+ */
+const API_FUNCTIONS = { getInitialData, getTasks, saveTask, updateStatus, deleteTask };
+
+function doPost(e) {
+  let out;
+  try {
+    const req = JSON.parse(e.postData.contents);
+    const fn = API_FUNCTIONS[req.fn];
+    if (!fn) throw new Error('Không có hàm ' + req.fn);
+    out = { ok: true, data: fn.apply(null, req.args || []) };
+  } catch (err) {
+    out = { ok: false, error: err.message || String(err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 /** Thêm menu khi mở Google Sheet */
 function onOpen() {
   SpreadsheetApp.getUi()

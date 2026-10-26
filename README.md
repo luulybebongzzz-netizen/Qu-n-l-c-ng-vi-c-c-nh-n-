@@ -31,6 +31,19 @@
 
 Khi sửa code, vào **Triển khai → Quản lý triển khai → Sửa → Phiên bản mới** để link cập nhật.
 
-## Xem thử không cần Apps Script
+## Dùng trên GitHub Pages (lưu thẳng vào Google Sheet)
 
-Mở trực tiếp `Index.html` bằng trình duyệt: app chạy chế độ demo, dữ liệu lưu trên trình duyệt. Có thể dùng cách này để đưa giao diện lên GitHub Pages làm bản xem thử.
+Trang GitHub Pages gọi tới link `/exec` của Apps Script (biến `API_URL` ở đầu phần `<script>` trong `Index.html`).
+
+1. Dán `Code.gs` mới (có hàm `doPost`) vào Apps Script và lưu.
+2. **Triển khai → Quản lý triển khai → Sửa (bút chì)**:
+   - Thực thi với tư cách: *Tôi*
+   - Người có quyền truy cập: **Bất kỳ ai**
+   - Phiên bản: **Phiên bản mới** → Triển khai.
+3. Giữ nguyên link `/exec` thì không cần sửa `API_URL`. Nếu tạo triển khai mới có link khác, sửa `API_URL` trong `Index.html` và `index.html`.
+
+Lưu ý: với quyền "Bất kỳ ai", ai có link `/exec` cũng đọc và sửa được danh sách công việc. Trên GitHub Pages app không biết email người dùng, nên mục "Của tôi" sẽ hỏi chọn tên (lưu trên trình duyệt).
+
+## Chế độ demo
+
+Để `API_URL = ''` rồi mở `Index.html` bằng trình duyệt: app chạy demo, dữ liệu lưu trên trình duyệt.
