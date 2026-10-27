@@ -6,11 +6,16 @@
 const SHEET_TASKS = 'CongViec';
 const SHEET_MEMBERS = 'ThanhVien';
 const SHEET_SETTINGS = 'CaiDat';
+const SHEET_ORDERS = 'DonHang';
 
 const TASK_HEADERS = [
   'ID', 'Tiêu đề', 'Mô tả', 'Trạng thái', 'Ưu tiên', 'Người phụ trách',
   'Ngày bắt đầu', 'Hạn chót', 'Nhãn', 'Tiến độ (%)', 'Người tạo',
   'Ngày tạo', 'Cập nhật lúc'
+];
+const ORDER_HEADERS = [
+  'ID', 'Ngày nhận đơn', 'Khách hàng', 'Mã hàng', 'SL đặt', 'ĐVT', 'Kho',
+  'Ngày nhận dự kiến', 'Người gửi', 'Ghi chú', 'SL đã lấy', 'Trạng thái', 'Cập nhật lúc'
 ];
 const MEMBER_HEADERS = ['Tên', 'Email', 'Vai trò'];
 const SETTING_HEADERS = ['Loại', 'Giá trị', 'Màu'];
@@ -40,7 +45,7 @@ function doGet() {
  * API JSON cho giao diện chạy ngoài Apps Script (GitHub Pages).
  * Gửi POST với body dạng text: {"fn": "saveTask", "args": [...]}
  */
-const API_FUNCTIONS = { getInitialData, getTasks, saveTask, updateStatus, deleteTask };
+const API_FUNCTIONS = { getInitialData, getTasks, saveTask, updateStatus, deleteTask, getOrders, saveOrders, deleteOrder };
 
 function doPost(e) {
   let out;
@@ -73,6 +78,7 @@ function setup() {
 function setup_() {
   const ss = SpreadsheetApp.getActive();
   ensureSheet_(ss, SHEET_TASKS, TASK_HEADERS);
+  ensureSheet_(ss, SHEET_ORDERS, ORDER_HEADERS);
   const members = ensureSheet_(ss, SHEET_MEMBERS, MEMBER_HEADERS);
   const settings = ensureSheet_(ss, SHEET_SETTINGS, SETTING_HEADERS);
   if (settings.getLastRow() === 1) {
@@ -102,6 +108,7 @@ function getInitialData() {
   const settings = readRows_(ss.getSheetByName(SHEET_SETTINGS));
   return {
     tasks: getTasks(),
+    orders: getOrders(),
     members: readRows_(ss.getSheetByName(SHEET_MEMBERS))
       .filter(r => r[0]).map(r => ({ name: String(r[0]), email: String(r[1]), role: String(r[2]) })),
     statuses: settings.filter(r => r[0] === 'TrangThai').map(r => ({ name: r[1], color: r[2] })),
@@ -159,6 +166,95 @@ function deleteTask(id) {
     if (r !== -1) sh.deleteRow(r);
     return id;
   });
+}
+
+/* ---------- Đơn hàng ---------- */
+
+function getOrders() {
+  const rows = readRows_(SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS));
+  return rows.filter(r => r[0]).map(rowToOrder_);
+}
+
+/** Thêm mới hoặc cập nhật nhiều dòng đơn hàng cùng lúc */
+function saveOrders(orders) {
+  if (!Array.isArray(orders) || !orders.length) return [];
+  return withLock_(() => {
+    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
+    const now = new Date();
+    const stamp = now.getTime().toString(36).toUpperCase();
+    const toAppend = [];
+    const saved = orders.map((o, i) => {
+      if (!String(o.customer || '').trim() || !String(o.code || '').trim()) {
+        throw new Error('Thiếu khách hàng hoặc mã hàng ở dòng ' + (i + 1));
+      }
+      const rowIndex = o.id ? findRow_(sh, o.id) : -1;
+      if (rowIndex === -1) {
+        o.id = o.id || 'DH' + stamp + (i ? '-' + i : '');
+        o.createdAt = o.createdAt || toDateStr_(now);
+      }
+      o.updatedAt = now;
+      const row = orderToRow_(o);
+      if (rowIndex === -1) toAppend.push(row);
+      else sh.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+      return rowToOrder_(row);
+    });
+    if (toAppend.length) {
+      sh.getRange(sh.getLastRow() + 1, 1, toAppend.length, ORDER_HEADERS.length).setValues(toAppend);
+    }
+    return saved;
+  });
+}
+
+function deleteOrder(id) {
+  return withLock_(() => {
+    const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_ORDERS);
+    const r = findRow_(sh, id);
+    if (r !== -1) sh.deleteRow(r);
+    return id;
+  });
+}
+
+function orderStatus_(o) {
+  if (o.status === 'Huỷ') return 'Huỷ';
+  const qty = Number(o.qty) || 0, picked = Number(o.picked) || 0;
+  if (qty > 0 && picked >= qty) return 'Đã lấy đủ';
+  return picked > 0 ? 'Lấy một phần' : 'Chưa lấy';
+}
+
+function rowToOrder_(r) {
+  return {
+    id: String(r[0]),
+    createdAt: toDateStr_(r[1]),
+    customer: String(r[2] || ''),
+    code: String(r[3] || ''),
+    qty: Number(r[4]) || 0,
+    unit: String(r[5] || ''),
+    warehouse: String(r[6] || ''),
+    pickupDate: toDateStr_(r[7]),
+    sender: String(r[8] || ''),
+    note: String(r[9] || ''),
+    picked: Number(r[10]) || 0,
+    status: String(r[11] || 'Chưa lấy'),
+    updatedAt: toDateTimeStr_(r[12])
+  };
+}
+
+function orderToRow_(o) {
+  return [
+    o.id,
+    parseDate_(o.createdAt) || new Date(),
+    String(o.customer).trim(),
+    String(o.code).trim(),
+    Number(o.qty) || 0,
+    o.unit || '',
+    o.warehouse || '',
+    parseDate_(o.pickupDate),
+    o.sender || '',
+    o.note || '',
+    Number(o.picked) || 0,
+    orderStatus_(o),
+    o.updatedAt || ''
+  ];
 }
 
 /* ---------- Hàm hỗ trợ ---------- */

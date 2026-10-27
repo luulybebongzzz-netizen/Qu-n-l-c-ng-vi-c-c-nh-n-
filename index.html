@@ -134,7 +134,25 @@ tbody tr:hover{background:var(--surface-2)}
 .spinner{width:38px;height:38px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .fab{display:none}
+.mobile-only{display:none}
 .bottom-nav{display:none}
+
+/* Đơn hàng */
+.group-head{display:flex;align-items:center;gap:8px;font-weight:700;margin:22px 0 10px}
+.group-head .count{background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:1px 9px;font-size:12px;color:var(--muted);font-weight:600}
+.order-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.order-item{display:flex;justify-content:space-between;gap:8px;margin-top:8px;padding:8px 10px;background:var(--surface-2);border-radius:8px;font-size:15px}
+.order-card .row .title{flex:1}
+.parsed-row{display:grid;grid-template-columns:1.3fr 1.3fr 1fr .8fr 1fr 1.2fr auto;gap:6px;margin-bottom:8px;align-items:center}
+.parsed-row input,.paste-opts input{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;outline:none;min-width:0;width:100%}
+.parsed-row input:focus{border-color:var(--primary)}
+.qty-unit{display:flex;gap:4px}
+.qty-unit input:last-child{width:56px;flex:none}
+.paste-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#pasteText{width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;outline:none;resize:vertical}
+.modal.wide{max-width:980px}
+.modal-body.block{display:block}
+.modal-body.block > * + *{margin-top:12px}
 
 /* ---------- Điện thoại / máy tính bảng ---------- */
 @media (max-width:1024px){
@@ -156,6 +174,11 @@ tbody tr:hover{background:var(--surface-2)}
   .cards{display:flex}
   .kanban{grid-template-columns:repeat(var(--cols,4),86%);gap:12px;margin:0 -16px;padding:0 16px 10px}
   .move-btn{display:inline-block}
+  .order-grid{grid-template-columns:1fr}
+  .parsed-row{grid-template-columns:1fr 1fr;padding:10px;border:1px solid var(--border);border-radius:10px}
+  .parsed-row .icon-btn{grid-column:2;justify-self:end}
+  #topAddManual{display:none!important}
+  .mobile-only{display:inline-flex}
   .bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--surface);border-top:1px solid var(--border);z-index:20}
   .bottom-nav .nav-btn{flex-direction:column;gap:3px;justify-content:center;font-size:11px;border-radius:0;padding:6px 0}
   .bottom-nav .nav-btn.active{background:transparent}
@@ -184,7 +207,8 @@ tbody tr:hover{background:var(--surface-2)}
     <header class="topbar">
       <h1 id="pageTitle">Tổng quan</h1>
       <button class="icon-btn" title="Tải lại" onclick="reload()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
-      <button class="btn btn-primary" onclick="openForm()">+ Thêm công việc</button>
+      <button class="btn btn-ghost" id="topAddManual" onclick="openOrder()" style="display:none">+ Thêm đơn tay</button>
+      <button class="btn btn-primary" id="topAdd" onclick="addAction()">+ Thêm công việc</button>
     </header>
 
     <section class="content">
@@ -205,13 +229,31 @@ tbody tr:hover{background:var(--surface-2)}
         </select>
       </div>
 
+      <div class="filters" id="orderFilters" style="display:none">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="oSearch" placeholder="Tìm khách hàng, mã hàng..." oninput="render()">
+        </div>
+        <select id="oStatus" onchange="render()">
+          <option value="open">Chưa lấy xong</option>
+          <option value="">Tất cả</option>
+          <option>Chưa lấy</option>
+          <option>Lấy một phần</option>
+          <option>Đã lấy đủ</option>
+          <option>Huỷ</option>
+        </select>
+        <select id="oWarehouse" onchange="render()"></select>
+        <select id="oSender" onchange="render()"></select>
+        <button class="btn btn-ghost mobile-only" onclick="openOrder()">+ Thêm đơn tay</button>
+      </div>
+
       <div id="view"></div>
     </section>
   </main>
 </div>
 
 <nav class="bottom-nav" id="bottomNav"></nav>
-<button class="fab" onclick="openForm()" aria-label="Thêm công việc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button>
+<button class="fab" onclick="addAction()" aria-label="Thêm công việc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg></button>
 
 <!-- Form công việc -->
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeForm()">
@@ -241,6 +283,62 @@ tbody tr:hover{background:var(--surface-2)}
     </div>
   </form>
 </div>
+
+<!-- Dán đơn Zalo -->
+<div class="overlay" id="pasteOverlay" onclick="if(event.target===this)closePaste()">
+  <div class="modal wide">
+    <div class="modal-head">
+      <h2>Dán đơn từ Zalo</h2>
+      <button type="button" class="icon-btn" onclick="closePaste()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body block">
+      <textarea id="pasteText" placeholder="Dán tin nhắn Zalo vào đây, ví dụ:&#10;&#10;Quỳnh An&#10;2080banyan002 20m&#10;thứ 2 tuần sau khách nhận&#10;&#10;(Có thể dán nhiều tin, cách nhau một dòng trống)"></textarea>
+      <div class="paste-opts">
+        <div class="field"><label>Người gửi đơn</label><input id="pasteSender" list="dlSenders" placeholder="Ví dụ: Ngọc Vĩ"></div>
+        <div class="field"><label>Kho</label><input id="pasteWarehouse" list="dlWarehouses" placeholder="Ví dụ: Kho 1"></div>
+      </div>
+      <button type="button" class="btn btn-ghost" onclick="previewParsed()">Tách đơn ↓</button>
+      <div id="pastePreview"></div>
+    </div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button type="button" class="btn btn-ghost" onclick="closePaste()">Huỷ</button>
+      <button type="button" class="btn btn-primary" id="btnSaveParsed" style="display:none" onclick="saveParsed()">Lưu đơn hàng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sửa / thêm tay một dòng đơn -->
+<div class="overlay" id="orderOverlay" onclick="if(event.target===this)closeOrder()">
+  <form class="modal" id="orderForm" onsubmit="submitOrder(event)">
+    <div class="modal-head">
+      <h2 id="orderTitle">Thêm đơn hàng</h2>
+      <button type="button" class="icon-btn" onclick="closeOrder()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" name="id"><input type="hidden" name="createdAt">
+      <div class="field full"><label>Khách hàng *</label><input name="customer" list="dlCustomers" required></div>
+      <div class="field"><label>Mã hàng *</label><input name="code" list="dlCodes" required></div>
+      <div class="field"><label>Kho</label><input name="warehouse" list="dlWarehouses"></div>
+      <div class="field"><label>SL đặt *</label><input name="qty" type="number" step="any" required></div>
+      <div class="field"><label>Đơn vị tính</label><input name="unit" placeholder="m2, viên, thùng..."></div>
+      <div class="field"><label>Ngày khách nhận</label><input name="pickupDate" type="date"></div>
+      <div class="field"><label>Người gửi đơn</label><input name="sender" list="dlSenders"></div>
+      <div class="field"><label>SL đã lấy</label><input name="picked" type="number" step="any" min="0"></div>
+      <div class="field" style="justify-content:flex-end"><label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="cancelled"> Đơn đã huỷ</label></div>
+      <div class="field full"><label>Ghi chú</label><input name="note"></div>
+      <div class="meta" id="orderMeta"></div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-danger" id="btnDeleteOrder" onclick="removeOrder()">Xoá</button>
+      <div class="spacer"></div>
+      <button type="button" class="btn btn-ghost" onclick="closeOrder()">Huỷ</button>
+      <button type="submit" class="btn btn-primary">Lưu</button>
+    </div>
+  </form>
+</div>
+
+<datalist id="dlCustomers"></datalist><datalist id="dlCodes"></datalist><datalist id="dlWarehouses"></datalist><datalist id="dlSenders"></datalist>
 
 <div class="toast" id="toast"></div>
 
@@ -284,6 +382,7 @@ const Demo = {
   getInitialData() {
     return {
       tasks: this._load(),
+      orders: this._orders(),
       members: [{name:'Yến'},{name:'Minh'},{name:'Lan'}],
       statuses: [{name:'Cần làm',color:'#64748b'},{name:'Đang làm',color:'#2563eb'},{name:'Chờ duyệt',color:'#d97706'},{name:'Hoàn thành',color:'#16a34a'}],
       priorities: [{name:'Thấp',color:'#94a3b8'},{name:'Trung bình',color:'#0ea5e9'},{name:'Cao',color:'#f97316'},{name:'Khẩn cấp',color:'#dc2626'}],
@@ -301,14 +400,34 @@ const Demo = {
     const all = this._load(); const t = all.find(x => x.id === id);
     t.status = status; if (status === 'Hoàn thành') t.progress = 100; this._save(all); return t;
   },
-  deleteTask(id) { this._save(this._load().filter(x => x.id !== id)); return id; }
+  deleteTask(id) { this._save(this._load().filter(x => x.id !== id)); return id; },
+  _orders() {
+    try { const s = JSON.parse(localStorage.getItem('demoOrders')); if (s) return s; } catch (e) {}
+    const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    return [
+      {id:'DH1',createdAt:d(-2),customer:'Quỳnh An',code:'2080BANYAN002',qty:20,unit:'m2',warehouse:'Kho 1',pickupDate:d(0),sender:'Ngọc Vĩ',note:'',picked:0,status:'Chưa lấy'},
+      {id:'DH2',createdAt:d(-5),customer:'Nam Phú',code:'6060MARBLE011',qty:50,unit:'m2',warehouse:'Kho 2',pickupDate:d(-1),sender:'Ngọc Vĩ',note:'',picked:20,status:'Lấy một phần'}
+    ];
+  },
+  getOrders() { return this._orders(); },
+  saveOrders(list) {
+    const all = this._orders(); const now = new Date().toISOString().slice(0, 19);
+    return list.map((o, i) => {
+      o.status = calcOrderStatus(o); o.updatedAt = now;
+      const j = all.findIndex(x => x.id === o.id);
+      if (j >= 0) all[j] = o; else { o.id = 'DH' + Date.now().toString(36).toUpperCase() + i; all.push(o); }
+      localStorage.setItem('demoOrders', JSON.stringify(all)); return o;
+    });
+  },
+  deleteOrder(id) { localStorage.setItem('demoOrders', JSON.stringify(this._orders().filter(x => x.id !== id))); return id; }
 };
 
 /* ---------- Trạng thái ---------- */
-const S = { tasks: [], members: [], statuses: [], priorities: [], view: 'dashboard' };
+const S = { tasks: [], orders: [], members: [], statuses: [], priorities: [], view: 'dashboard' };
 const VIEWS = [
   { id: 'dashboard', label: 'Tổng quan', icon: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>' },
   { id: 'list', label: 'Danh sách', icon: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>' },
+  { id: 'orders', label: 'Đơn hàng', icon: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>' },
   { id: 'kanban', label: 'Kanban', icon: '<rect x="3" y="3" width="5" height="18" rx="1.5"/><rect x="10" y="3" width="5" height="12" rx="1.5"/><rect x="17" y="3" width="4" height="8" rx="1.5"/>' },
   { id: 'mine', label: 'Của tôi', icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>' }
 ];
@@ -364,7 +483,7 @@ async function init() {
 }
 
 async function reload() {
-  try { S.tasks = await api('getTasks'); render(); toast('Đã cập nhật dữ liệu'); }
+  try { [S.tasks, S.orders] = await Promise.all([api('getTasks'), api('getOrders')]); render(); toast('Đã cập nhật dữ liệu'); }
   catch (e) { toast(e, true); }
 }
 
@@ -388,9 +507,16 @@ function setView(v) {
   try { localStorage.setItem('view', v); } catch (e) {}
   document.querySelectorAll('.nav-btn[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === v));
   $('pageTitle').textContent = VIEWS.find(x => x.id === v).label;
-  $('filters').style.display = v === 'dashboard' ? 'none' : '';
+  $('filters').style.display = v === 'dashboard' || v === 'orders' ? 'none' : '';
+  $('orderFilters').style.display = v === 'orders' ? '' : 'none';
+  $('topAdd').textContent = v === 'orders' ? '+ Dán đơn Zalo' : '+ Thêm công việc';
+  $('topAddManual').style.display = v === 'orders' ? '' : 'none';
   render();
   window.scrollTo(0, 0);
+}
+
+function addAction() {
+  if (S.view === 'orders') openPaste(); else openForm();
 }
 
 function toggleTheme() {
@@ -443,6 +569,7 @@ function filtered() {
 function render() {
   const v = S.view;
   if (v === 'dashboard') return renderDashboard();
+  if (v === 'orders') return renderOrders();
   if (v === 'kanban') return renderKanban(filtered());
   if (v === 'mine' && !myName()) return renderPickName();
   renderList(filtered());
@@ -479,7 +606,16 @@ function renderDashboard() {
     return `<div class="bar-row"><span class="name">${esc(m.name)}</span><div class="bar"><span style="width:${mine.length ? d / mine.length * 100 : 0}%;background:var(--ok)"></span></div><span class="num">${d}/${mine.length}</span></div>`;
   }).join('');
 
-  $('view').innerHTML = `
+  const os = orderStats(S.orders);
+  const orderBanner = S.orders.length ? `<div class="panel" style="margin-bottom:16px;cursor:pointer" onclick="setView('orders')">
+      <h3>📦 Đơn hàng chưa lấy</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:8px 24px">
+        <span><b>${os.open}</b> dòng hàng · ${os.customers} khách</span>
+        <span style="color:#2563eb"><b>${os.today}</b> khách nhận hôm nay</span>
+        <span style="color:var(--danger)"><b>${os.late}</b> quá hẹn</span>
+        <span style="color:var(--ok)">Đã lấy <b>${os.pct}%</b></span>
+      </div></div>` : '';
+  $('view').innerHTML = orderBanner + `
     <div class="stats">
       <div class="stat"><div class="label">Tổng công việc</div><div class="value">${total}</div></div>
       <div class="stat"><div class="label">Đang làm</div><div class="value" style="color:#2563eb">${doing}</div></div>
@@ -594,7 +730,324 @@ async function removeTask() {
   } catch (e) { toast(e, true); }
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeForm(); });
+/* ---------- Đơn hàng ---------- */
+const ORDER_STATUSES = [
+  { name: 'Chưa lấy', color: '#dc2626' },
+  { name: 'Lấy một phần', color: '#d97706' },
+  { name: 'Đã lấy đủ', color: '#16a34a' },
+  { name: 'Huỷ', color: '#94a3b8' }
+];
+const orderOpen = (o) => o.status === 'Chưa lấy' || o.status === 'Lấy một phần';
+const fmtQty = (n) => Number(n || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
+
+function calcOrderStatus(o) {
+  if (o.status === 'Huỷ') return 'Huỷ';
+  const qty = Number(o.qty) || 0, picked = Number(o.picked) || 0;
+  if (qty > 0 && picked >= qty) return 'Đã lấy đủ';
+  return picked > 0 ? 'Lấy một phần' : 'Chưa lấy';
+}
+
+/* Tách tin Zalo thành các dòng đơn hàng.
+ * Mỗi đoạn (cách nhau dòng trống) là một tin: dòng chữ đầu là khách hàng,
+ * dòng "mã số_lượng đơn_vị" là hàng, câu có ngày (thứ 2 tuần sau, mai, 05/11...) là ngày nhận. */
+const ITEM_RE = /^([A-Za-z0-9][\w.\/-]*\d[\w.\/-]*|[A-Za-z][\w.\/-]*[A-Za-z]\d*)\s*[:x×\-]?\s*(\d+(?:[.,]\d+)?)\s*(m2|m²|md|m|viên|v|thùng|th|hộp|cái|bộ|kg|tấn)?\.?$/i;
+const NOISE_RE = /^(\d{1,2}:\d{2}|hôm nay|hôm qua|đã xem|đã nhận)$/i;
+
+function parseItemLine(line) {
+  const out = [];
+  for (const part of line.split(/[;,]\s*(?=[A-Za-z0-9])/)) {
+    const m = part.trim().match(ITEM_RE);
+    if (!m || !/\d/.test(m[1]) && !m[3]) return null;
+    out.push({ code: m[1].toUpperCase(), qty: Number(m[2].replace(',', '.')), unit: (m[3] || '').toLowerCase().replace('m²', 'm2') });
+  }
+  return out.length ? out : null;
+}
+
+function parseVnDate(text, base) {
+  const t = text.toLowerCase();
+  const day0 = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  const add = (n) => { const d = new Date(day0); d.setDate(d.getDate() + n); return d; };
+  const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  let m = t.match(/(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?/);
+  if (m) {
+    let y = m[3] ? Number(m[3]) : day0.getFullYear();
+    if (y < 100) y += 2000;
+    const d = new Date(y, Number(m[2]) - 1, Number(m[1]));
+    if (!m[3] && d < add(-60)) d.setFullYear(y + 1);
+    return iso(d);
+  }
+  if (/hôm nay|trong ngày|chiều nay|sáng nay|tối nay/.test(t)) return iso(day0);
+  if (/ngày mốt|\bmốt\b/.test(t)) return iso(add(2));
+  if (/ngày mai|\bmai\b/.test(t)) return iso(add(1));
+  const names = { 'hai': 1, 'ba': 2, 'tư': 3, 'bốn': 3, 'năm': 4, 'sáu': 5, 'bảy': 6 };
+  m = t.match(/(?:thứ|t)\s*([2-7]|hai|ba|tư|bốn|năm|sáu|bảy)\b|(chủ nhật|\bcn\b)/);
+  if (m) {
+    const target = m[2] ? 7 : (/\d/.test(m[1]) ? Number(m[1]) - 1 : names[m[1]]); // Thứ 2 = 1 ... CN = 7
+    const today = day0.getDay() || 7;
+    let diff = target - today;
+    if (/tuần sau|tuần tới/.test(t)) diff += 7;
+    else if (diff < 0) diff += 7;
+    return iso(add(diff));
+  }
+  return '';
+}
+
+function parseZalo(text, base = new Date()) {
+  const blocks = text.replace(/\r/g, '').split(/\n\s*\n/);
+  const rows = [];
+  let customer = '';
+  for (const block of blocks) {
+    const lines = block.split('\n').map(l => l.replace(/@[\p{L}\s]+$/u, '').trim()).filter(l => l && !NOISE_RE.test(l));
+    if (!lines.length) continue;
+    const items = [], notes = [];
+    let blockCustomer = '', date = '';
+    for (const l of lines) {
+      const it = parseItemLine(l);
+      if (it) { items.push(...it); continue; }
+      const d = parseVnDate(l, base);
+      if (d && !date) { date = d; notes.push(l); continue; }
+      if (!blockCustomer && !items.length && l.length <= 60 && !/[?!]$/.test(l)) blockCustomer = l;
+      else notes.push(l);
+    }
+    if (blockCustomer) customer = blockCustomer;
+    if (!items.length) {
+      // Tin chỉ có ngày hoặc ghi chú: gắn vào các dòng vừa tách của cùng khách
+      const prev = rows.filter(r => r.customer === customer);
+      if (prev.length && !blockCustomer) prev.forEach(r => { if (date && !r.pickupDate) r.pickupDate = date; if (notes.length) r.note = [r.note, notes.join('. ')].filter(Boolean).join('. '); });
+      continue;
+    }
+    items.forEach(it => rows.push({ customer, code: it.code, qty: it.qty, unit: it.unit, pickupDate: date, note: notes.join('. ') }));
+  }
+  return rows;
+}
+
+/* Lọc + nhóm */
+function filteredOrders() {
+  const q = $('oSearch').value.trim().toLowerCase();
+  const st = $('oStatus').value, wh = $('oWarehouse').value, se = $('oSender').value;
+  return S.orders.filter(o => {
+    if (q && !`${o.customer} ${o.code} ${o.note} ${o.sender}`.toLowerCase().includes(q)) return false;
+    if (st === 'open' && !orderOpen(o)) return false;
+    if (st && st !== 'open' && o.status !== st) return false;
+    if (wh && o.warehouse !== wh) return false;
+    if (se && o.sender !== se) return false;
+    return true;
+  });
+}
+
+function orderGroups(list) {
+  const groups = [
+    { key: 'late', title: '⚠️ Quá hẹn chưa lấy', items: [] },
+    { key: 'today', title: '📦 Hôm nay khách nhận', items: [] },
+    { key: 'tomorrow', title: 'Ngày mai', items: [] },
+    { key: 'soon', title: 'Sắp nhận', items: [] },
+    { key: 'nodate', title: 'Chưa hẹn ngày', items: [] },
+    { key: 'done', title: '✅ Đã lấy đủ / Huỷ', items: [] }
+  ];
+  const g = Object.fromEntries(groups.map(x => [x.key, x]));
+  list.forEach(o => {
+    if (!orderOpen(o)) return g.done.items.push(o);
+    const n = daysLeft(o.pickupDate);
+    if (n === null) g.nodate.items.push(o);
+    else if (n < 0) g.late.items.push(o);
+    else if (n === 0) g.today.items.push(o);
+    else if (n === 1) g.tomorrow.items.push(o);
+    else g.soon.items.push(o);
+  });
+  groups.forEach(x => x.items.sort((a, b) => String(a.pickupDate || '9').localeCompare(String(b.pickupDate || '9')) || a.customer.localeCompare(b.customer)));
+  return groups.filter(x => x.items.length);
+}
+
+function pickupHtml(o) {
+  if (!o.pickupDate) return '<span class="t-sub">Chưa hẹn ngày</span>';
+  const n = daysLeft(o.pickupDate);
+  const wd = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][new Date(o.pickupDate + 'T00:00').getDay()];
+  let cls = '', extra = '';
+  if (orderOpen(o)) {
+    if (n < 0) { cls = 'overdue'; extra = ` · trễ ${-n} ngày`; }
+    else if (n === 0) { cls = 'soon'; extra = ' · hôm nay'; }
+    else if (n === 1) { cls = 'soon'; extra = ' · ngày mai'; }
+  }
+  return `<span class="due ${cls}">${wd} ${fmtDate(o.pickupDate)}${extra}</span>`;
+}
+
+function orderCardHtml(o) {
+  const pct = o.qty ? Math.min(100, Math.round(o.picked / o.qty * 100)) : 0;
+  const c = colorOf(ORDER_STATUSES, o.status);
+  return `<div class="task-card order-card" style="--prio:${c}" onclick="openOrder('${esc(o.id)}')">
+    <div class="row" style="margin-top:0"><div class="title">${esc(o.customer)}</div>${badge(ORDER_STATUSES, o.status)}</div>
+    <div class="order-item"><b>${esc(o.code)}</b><span>${fmtQty(o.qty)} ${esc(o.unit)}</span></div>
+    <div class="row">${pickupHtml(o)}<span class="t-sub">${esc([o.warehouse, o.sender].filter(Boolean).join(' · '))}</span></div>
+    ${o.note ? `<div class="t-sub" style="margin-top:6px">${esc(o.note)}</div>` : ''}
+    <div class="row"><div class="progress" style="flex:1"><span style="width:${pct}%;background:${c}"></span></div>
+      <span class="t-sub">Đã lấy ${fmtQty(o.picked)}/${fmtQty(o.qty)}</span></div>
+    ${orderOpen(o) ? `<button class="move-btn" style="display:inline-block" onclick="event.stopPropagation();markPicked('${esc(o.id)}')">✓ Khách đã lấy đủ</button>` : ''}
+  </div>`;
+}
+
+function orderStats(list) {
+  const open = list.filter(orderOpen);
+  const active = list.filter(o => o.status !== 'Huỷ');
+  const qty = active.reduce((s, o) => s + (Number(o.qty) || 0), 0);
+  const picked = active.reduce((s, o) => s + Math.min(Number(o.picked) || 0, Number(o.qty) || 0), 0);
+  return {
+    open: open.length,
+    customers: new Set(open.map(o => o.customer)).size,
+    today: open.filter(o => daysLeft(o.pickupDate) === 0).length,
+    late: open.filter(o => o.pickupDate && daysLeft(o.pickupDate) < 0).length,
+    pct: qty ? Math.round(picked / qty * 100) : 0
+  };
+}
+
+function buildOrderSelects() {
+  const uniq = (k) => [...new Set(S.orders.map(o => o[k]).filter(Boolean))].sort();
+  const keep = (id, html) => { const el = $(id), v = el.value; el.innerHTML = html; el.value = v; };
+  keep('oWarehouse', '<option value="">Mọi kho</option>' + uniq('warehouse').map(x => `<option>${esc(x)}</option>`).join(''));
+  keep('oSender', '<option value="">Mọi người gửi</option>' + uniq('sender').map(x => `<option>${esc(x)}</option>`).join(''));
+  $('dlCustomers').innerHTML = uniq('customer').map(x => `<option value="${esc(x)}">`).join('');
+  $('dlCodes').innerHTML = uniq('code').map(x => `<option value="${esc(x)}">`).join('');
+  $('dlWarehouses').innerHTML = uniq('warehouse').map(x => `<option value="${esc(x)}">`).join('');
+  $('dlSenders').innerHTML = uniq('sender').map(x => `<option value="${esc(x)}">`).join('');
+}
+
+function renderOrders() {
+  buildOrderSelects();
+  const list = filteredOrders();
+  const s = orderStats(S.orders);
+  const stats = `<div class="stats">
+    <div class="stat"><div class="label">Dòng hàng chưa lấy</div><div class="value">${s.open}</div><div class="t-sub">${s.customers} khách</div></div>
+    <div class="stat"><div class="label">Hôm nay khách nhận</div><div class="value" style="color:#2563eb">${s.today}</div></div>
+    <div class="stat"><div class="label">Quá hẹn chưa lấy</div><div class="value" style="color:var(--danger)">${s.late}</div></div>
+    <div class="stat"><div class="label">Đã lấy (theo SL)</div><div class="value" style="color:var(--ok)">${s.pct}%</div></div>
+  </div>`;
+  const groups = orderGroups(list);
+  $('view').innerHTML = stats + (groups.length ? groups.map(g => `
+    <div class="group-head">${g.title}<span class="count">${g.items.length}</span></div>
+    <div class="order-grid">${g.items.map(orderCardHtml).join('')}</div>`).join('')
+    : `<div class="empty">Chưa có đơn hàng nào phù hợp.<br><br><button class="btn btn-primary" onclick="openPaste()">Dán đơn Zalo</button></div>`);
+}
+
+/* Dán tin Zalo */
+function openPaste() {
+  $('pasteText').value = '';
+  $('pastePreview').innerHTML = '';
+  $('btnSaveParsed').style.display = 'none';
+  try { $('pasteSender').value = localStorage.getItem('lastSender') || ''; $('pasteWarehouse').value = localStorage.getItem('lastWarehouse') || ''; } catch (e) {}
+  buildOrderSelects();
+  $('pasteOverlay').classList.add('show');
+  if (window.innerWidth > 768) setTimeout(() => $('pasteText').focus(), 50);
+}
+function closePaste() { $('pasteOverlay').classList.remove('show'); }
+
+function parsedRowHtml(r) {
+  const wh = $('pasteWarehouse').value.trim();
+  return `<div class="parsed-row">
+      <input data-k="customer" list="dlCustomers" value="${esc(r.customer)}" placeholder="Khách hàng">
+      <input data-k="code" list="dlCodes" value="${esc(r.code)}" placeholder="Mã hàng">
+      <div class="qty-unit"><input data-k="qty" type="number" step="any" value="${r.qty}" placeholder="SL"><input data-k="unit" value="${esc(r.unit)}" placeholder="ĐVT"></div>
+      <input data-k="warehouse" list="dlWarehouses" value="${esc(r.warehouse ?? wh)}" placeholder="Kho">
+      <input data-k="pickupDate" type="date" value="${r.pickupDate}">
+      <input data-k="note" value="${esc(r.note)}" placeholder="Ghi chú">
+      <button type="button" class="icon-btn" title="Bỏ dòng này" onclick="this.parentElement.remove()">✕</button>
+    </div>`;
+}
+
+function previewParsed() {
+  const rows = parseZalo($('pasteText').value);
+  const msg = rows.length
+    ? `Tách được ${rows.length} dòng. Kiểm tra và sửa nếu cần:`
+    : 'Chưa tách được dòng hàng nào (dòng hàng thường có dạng <b>mã_hàng số_lượng</b>, ví dụ <b>2080banyan002 20m</b>). Chị có thể gõ tay bên dưới:';
+  if (!rows.length) rows.push({ customer: '', code: '', qty: '', unit: '', pickupDate: '', note: '' });
+  $('pastePreview').innerHTML = `<div class="t-sub" style="margin:4px 0 8px">${msg}</div><div id="parsedRows">${rows.map(parsedRowHtml).join('')}</div>
+    <button type="button" class="btn btn-ghost" style="margin-top:8px" onclick="addParsedRow()">+ Thêm dòng</button>`;
+  $('btnSaveParsed').style.display = '';
+}
+
+function addParsedRow() {
+  const rows = document.querySelectorAll('#parsedRows .parsed-row');
+  const last = rows[rows.length - 1];
+  const val = (k) => last ? last.querySelector(`[data-k="${k}"]`).value : '';
+  // Dòng mới giữ lại khách, kho, ngày nhận của dòng trên để gõ nhanh
+  $('parsedRows').insertAdjacentHTML('beforeend', parsedRowHtml({ customer: val('customer'), code: '', qty: '', unit: val('unit'), warehouse: val('warehouse'), pickupDate: val('pickupDate'), note: '' }));
+  $('parsedRows').lastElementChild.querySelector('[data-k="code"]').focus();
+}
+
+async function saveParsed() {
+  const sender = $('pasteSender').value.trim();
+  const today = todayStr();
+  const rows = [...document.querySelectorAll('#pastePreview .parsed-row')].map(el => {
+    const o = { sender, createdAt: today, picked: 0, status: 'Chưa lấy' };
+    el.querySelectorAll('[data-k]').forEach(inp => o[inp.dataset.k] = inp.value.trim());
+    o.qty = Number(o.qty) || 0;
+    return o;
+  });
+  if (!rows.length) return toast('Không có dòng nào để lưu', true);
+  const bad = rows.findIndex(o => !o.customer || !o.code);
+  if (bad >= 0) return toast(`Dòng ${bad + 1} thiếu khách hàng hoặc mã hàng`, true);
+  try { localStorage.setItem('lastSender', sender); localStorage.setItem('lastWarehouse', $('pasteWarehouse').value.trim()); } catch (e) {}
+  const btn = $('btnSaveParsed'); btn.disabled = true; btn.textContent = 'Đang lưu...';
+  try {
+    const saved = await api('saveOrders', rows);
+    S.orders.push(...saved);
+    closePaste(); render(); toast(`Đã lưu ${saved.length} dòng hàng`);
+  } catch (e) { toast(e, true); }
+  btn.disabled = false; btn.textContent = 'Lưu đơn hàng';
+}
+
+/* Sửa một dòng đơn */
+function openOrder(id) {
+  const f = $('orderForm'); f.reset();
+  const o = id ? S.orders.find(x => x.id === id) : null;
+  buildOrderSelects();
+  $('orderTitle').textContent = o ? 'Chi tiết đơn hàng' : 'Thêm đơn hàng';
+  $('btnDeleteOrder').style.display = o ? '' : 'none';
+  let last = {};
+  try { last = { sender: localStorage.getItem('lastSender') || '', warehouse: localStorage.getItem('lastWarehouse') || '' }; } catch (e) {}
+  const data = o || { ...last, qty: '', picked: 0, status: 'Chưa lấy', createdAt: todayStr() };
+  ['id', 'customer', 'code', 'qty', 'unit', 'warehouse', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
+  f.elements.cancelled.checked = data.status === 'Huỷ';
+  $('orderMeta').textContent = o ? `Mã: ${o.id} · Nhận đơn ${fmtDate(o.createdAt)}${o.updatedAt ? ' · Cập nhật ' + o.updatedAt.replace('T', ' ') : ''}` : '';
+  $('orderOverlay').classList.add('show');
+}
+function closeOrder() { $('orderOverlay').classList.remove('show'); }
+
+async function submitOrder(e) {
+  e.preventDefault();
+  const f = $('orderForm');
+  const o = Object.fromEntries(new FormData(f).entries());
+  o.qty = Number(o.qty) || 0; o.picked = Number(o.picked) || 0;
+  o.status = f.elements.cancelled.checked ? 'Huỷ' : '';
+  o.status = calcOrderStatus(o);
+  delete o.cancelled;
+  try {
+    const [saved] = await api('saveOrders', [o]);
+    const i = S.orders.findIndex(x => x.id === saved.id);
+    if (i >= 0) S.orders[i] = saved; else S.orders.push(saved);
+    closeOrder(); render(); toast('Đã lưu đơn hàng');
+  } catch (err) { toast(err, true); }
+}
+
+async function markPicked(id) {
+  const o = S.orders.find(x => x.id === id);
+  if (!o) return;
+  const old = { ...o };
+  o.picked = o.qty; o.status = 'Đã lấy đủ';
+  render();
+  try { const [saved] = await api('saveOrders', [{ ...o }]); Object.assign(o, saved); toast(`${o.customer}: đã lấy đủ ${o.code}`); }
+  catch (e) { Object.assign(o, old); render(); toast(e, true); }
+}
+
+async function removeOrder() {
+  const id = $('orderForm').elements.id.value;
+  if (!id || !confirm('Xoá dòng đơn hàng này?')) return;
+  try {
+    await api('deleteOrder', id);
+    S.orders = S.orders.filter(x => x.id !== id);
+    closeOrder(); render(); toast('Đã xoá');
+  } catch (e) { toast(e, true); }
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeForm(); closePaste(); closeOrder(); } });
 init();
 </script>
 </body>
