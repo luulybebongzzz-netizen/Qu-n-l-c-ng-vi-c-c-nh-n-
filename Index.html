@@ -753,7 +753,7 @@ function calcOrderStatus(o) {
 /* Tách tin Zalo thành các dòng đơn hàng.
  * Mỗi đoạn (cách nhau dòng trống) là một tin: dòng chữ đầu là khách hàng,
  * dòng "mã số_lượng đơn_vị" là hàng, câu có ngày (thứ 2 tuần sau, mai, 05/11...) là ngày nhận. */
-const ITEM_RE = /^([A-Za-z0-9][\w.\/-]*\d[\w.\/-]*|[A-Za-z][\w.\/-]*[A-Za-z]\d*)\s*[:x×\-]?\s*(\d+(?:[.,]\d+)?)\s*(m2|m²|md|m|viên|v|thùng|th|hộp|cái|bộ|kg|tấn)?\.?$/i;
+const ITEM_RE = /^([A-Za-z0-9][\w.\/-]*\d[\w.\/-]*|[A-Za-z][\w.\/-]*[A-Za-z]\d*)\s*[:x×\-]?\s*(\d+(?:[.,]\d+)?)\s*(m2|m²|m3|md|m|viên|v|thùng|th|hộp|cái|bộ|kg|tấn|bao|cuộn|tấm|cây|kiện|pallet|lít|lon)?\.?$/i;
 const NOISE_RE = /^(\d{1,2}:\d{2}|hôm nay|hôm qua|đã xem|đã nhận)$/i;
 
 function parseItemLine(line) {
@@ -990,6 +990,11 @@ async function saveParsed() {
   if (!rows.length) return toast('Không có dòng nào để lưu', true);
   const bad = rows.findIndex(o => !o.customer || !o.code);
   if (bad >= 0) return toast(`Dòng ${bad + 1} thiếu khách hàng hoặc mã hàng`, true);
+  // Cảnh báo khi dòng giống hệt một đơn chưa lấy đã lưu (dán trùng tin)
+  const key = (o) => [o.customer, o.code, Number(o.qty), o.pickupDate || ''].join('|').toLowerCase();
+  const existing = new Set(S.orders.filter(orderOpen).map(key));
+  const dup = rows.filter(o => existing.has(key(o)));
+  if (dup.length && !confirm(`${dup.length} dòng đã có rồi (${dup.map(o => o.customer + ' · ' + o.code).join(', ')}).\nVẫn lưu thêm?`)) return;
   try { localStorage.setItem('lastSender', sender); localStorage.setItem('lastWarehouse', $('pasteWarehouse').value.trim()); localStorage.setItem('lastToWarehouse', $('pasteToWarehouse').value.trim()); } catch (e) {}
   const btn = $('btnSaveParsed'); btn.disabled = true; btn.textContent = 'Đang lưu...';
   try {
