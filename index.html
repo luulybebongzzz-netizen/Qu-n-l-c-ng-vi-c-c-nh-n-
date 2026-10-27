@@ -143,7 +143,8 @@ tbody tr:hover{background:var(--surface-2)}
 .order-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
 .order-item{display:flex;justify-content:space-between;gap:8px;margin-top:8px;padding:8px 10px;background:var(--surface-2);border-radius:8px;font-size:15px}
 .order-card .row .title{flex:1}
-.parsed-row{display:grid;grid-template-columns:1.3fr 1.3fr 1fr .8fr .8fr 1fr 1.2fr auto;gap:6px;margin-bottom:8px;align-items:center}
+.parsed-row{display:grid;grid-template-columns:1.4fr 1fr 1.4fr 1fr 1.2fr;gap:6px;margin-bottom:10px;align-items:center;padding:8px;border:1px solid var(--border);border-radius:10px}
+.parsed-row .icon-btn{justify-self:end}
 .parsed-row input,.paste-opts input{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;outline:none;min-width:0;width:100%}
 .parsed-row input:focus{border-color:var(--primary)}
 .qty-unit{display:flex;gap:4px}
@@ -319,8 +320,10 @@ tbody tr:hover{background:var(--surface-2)}
     </div>
     <div class="modal-body">
       <input type="hidden" name="id"><input type="hidden" name="createdAt">
-      <div class="field full"><label>Khách hàng *</label><input name="customer" list="dlCustomers" required></div>
-      <div class="field"><label>Mã hàng *</label><input name="code" list="dlCodes" required></div>
+      <div class="field full"><label>Khách hàng *</label><input name="customer" list="dlCustomers" required onchange="fillSap(this.form)"></div>
+      <div class="field"><label>Mã hàng *</label><input name="code" list="dlCodes" required onchange="fillSap(this.form)"></div>
+      <div class="field"><label>Mã KH SAP</label><input name="customerSap" placeholder="Mã khách trên SAP"></div>
+      <div class="field"><label>Mã hàng SAP</label><input name="codeSap" placeholder="Mã vật tư (Material)"></div>
       <div class="field"><label>Kho lấy hàng</label><input name="warehouse" list="dlWarehouses"></div>
       <div class="field"><label>Kho nhận hàng</label><input name="toWarehouse" list="dlToWarehouses"></div>
       <div class="field"><label>SL đặt *</label><input name="qty" type="number" step="any" required></div>
@@ -829,7 +832,7 @@ function filteredOrders() {
   const q = $('oSearch').value.trim().toLowerCase();
   const st = $('oStatus').value, wh = $('oWarehouse').value, se = $('oSender').value;
   return S.orders.filter(o => {
-    if (q && !`${o.customer} ${o.code} ${o.note} ${o.sender} ${o.warehouse} ${o.toWarehouse}`.toLowerCase().includes(q)) return false;
+    if (q && !`${o.customer} ${o.code} ${o.note} ${o.sender} ${o.warehouse} ${o.toWarehouse} ${o.customerSap} ${o.codeSap}`.toLowerCase().includes(q)) return false;
     if (st === 'open' && !orderOpen(o)) return false;
     if (st && st !== 'open' && o.status !== st) return false;
     if (wh && o.warehouse !== wh) return false;
@@ -879,7 +882,8 @@ function orderCardHtml(o) {
   const c = colorOf(ORDER_STATUSES, o.status);
   return `<div class="task-card order-card" style="--prio:${c}" onclick="openOrder('${esc(o.id)}')">
     <div class="row" style="margin-top:0"><div class="title">${esc(o.customer)}</div>${badge(ORDER_STATUSES, o.status)}</div>
-    <div class="order-item"><b>${esc(o.code)}</b><span>${fmtQty(o.qty)} ${esc(o.unit)}</span></div>
+    ${o.customerSap ? `<div class="t-sub">KH SAP: ${esc(o.customerSap)}</div>` : ''}
+    <div class="order-item"><span><b>${esc(o.code)}</b>${o.codeSap && o.codeSap !== o.code ? `<br><span class="t-sub">SAP: ${esc(o.codeSap)}</span>` : ''}</span><span>${fmtQty(o.qty)} ${esc(o.unit)}</span></div>
     <div class="row">${pickupHtml(o)}<span class="t-sub">${esc(o.sender)}</span></div>
     ${o.warehouse || o.toWarehouse ? `<div class="t-sub" style="margin-top:6px">🏭 ${esc(o.warehouse || '?')} → 📍 ${esc(o.toWarehouse || '?')}</div>` : ''}
     ${o.note ? `<div class="t-sub" style="margin-top:6px">${esc(o.note)}</div>` : ''}
@@ -944,11 +948,33 @@ function openPaste() {
 }
 function closePaste() { $('pasteOverlay').classList.remove('show'); }
 
+/* Mã SAP đã dùng lần trước cho cùng khách / cùng mã hàng */
+function sapOf(keyField, keyVal, sapField) {
+  const k = String(keyVal || '').trim().toLowerCase();
+  if (!k) return '';
+  for (let i = S.orders.length - 1; i >= 0; i--) {
+    const o = S.orders[i];
+    if (o[sapField] && String(o[keyField]).trim().toLowerCase() === k) return o[sapField];
+  }
+  return '';
+}
+
+/* Tự điền mã SAP khi gõ khách hàng / mã hàng (chỉ điền ô đang trống) */
+function fillSap(scope) {
+  const get = (k) => scope.querySelector(`[data-k="${k}"], [name="${k}"]`);
+  [['customer', 'customerSap'], ['code', 'codeSap']].forEach(([k, sk]) => {
+    const inp = get(sk);
+    if (inp && !inp.value) inp.value = sapOf(k, get(k).value, sk);
+  });
+}
+
 function parsedRowHtml(r) {
   const wh = $('pasteWarehouse').value.trim(), toWh = $('pasteToWarehouse').value.trim();
   return `<div class="parsed-row">
-      <input data-k="customer" list="dlCustomers" value="${esc(r.customer)}" placeholder="Khách hàng">
-      <input data-k="code" list="dlCodes" value="${esc(r.code)}" placeholder="Mã hàng">
+      <input data-k="customer" list="dlCustomers" value="${esc(r.customer)}" placeholder="Khách hàng" onchange="fillSap(this.parentElement)">
+      <input data-k="customerSap" value="${esc(r.customerSap ?? sapOf('customer', r.customer, 'customerSap'))}" placeholder="Mã KH SAP">
+      <input data-k="code" list="dlCodes" value="${esc(r.code)}" placeholder="Mã hàng" onchange="fillSap(this.parentElement)">
+      <input data-k="codeSap" value="${esc(r.codeSap ?? sapOf('code', r.code, 'codeSap'))}" placeholder="Mã hàng SAP">
       <div class="qty-unit"><input data-k="qty" type="number" step="any" value="${r.qty}" placeholder="SL"><input data-k="unit" value="${esc(r.unit)}" placeholder="ĐVT"></div>
       <input data-k="warehouse" list="dlWarehouses" value="${esc(r.warehouse ?? wh)}" placeholder="Kho lấy">
       <input data-k="toWarehouse" list="dlToWarehouses" value="${esc(r.toWarehouse ?? toWh)}" placeholder="Kho nhận">
@@ -1015,7 +1041,7 @@ function openOrder(id) {
   let last = {};
   try { last = { sender: localStorage.getItem('lastSender') || '', warehouse: localStorage.getItem('lastWarehouse') || '', toWarehouse: localStorage.getItem('lastToWarehouse') || '' }; } catch (e) {}
   const data = o || { ...last, qty: '', picked: 0, status: 'Chưa lấy', createdAt: todayStr() };
-  ['id', 'customer', 'code', 'qty', 'unit', 'warehouse', 'toWarehouse', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
+  ['id', 'customer', 'code', 'qty', 'unit', 'warehouse', 'toWarehouse', 'customerSap', 'codeSap', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
   f.elements.cancelled.checked = data.status === 'Huỷ';
   $('orderMeta').textContent = o ? `Mã: ${o.id} · Nhận đơn ${fmtDate(o.createdAt)}${o.updatedAt ? ' · Cập nhật ' + o.updatedAt.replace('T', ' ') : ''}` : '';
   $('orderOverlay').classList.add('show');

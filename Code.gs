@@ -16,7 +16,7 @@ const TASK_HEADERS = [
 const ORDER_HEADERS = [
   'ID', 'Ngày nhận đơn', 'Khách hàng', 'Mã hàng', 'SL đặt', 'ĐVT', 'Kho',
   'Ngày nhận dự kiến', 'Người gửi', 'Ghi chú', 'SL đã lấy', 'Trạng thái', 'Cập nhật lúc',
-  'Kho nhận hàng'
+  'Kho nhận hàng', 'Mã KH SAP', 'Mã hàng SAP'
 ];
 const MEMBER_HEADERS = ['Tên', 'Email', 'Vai trò'];
 const SETTING_HEADERS = ['Loại', 'Giá trị', 'Màu'];
@@ -241,7 +241,9 @@ function rowToOrder_(r) {
     picked: Number(r[10]) || 0,
     status: String(r[11] || 'Chưa lấy'),
     updatedAt: toDateTimeStr_(r[12]),
-    toWarehouse: String(r[13] || '')
+    toWarehouse: String(r[13] || ''),
+    customerSap: String(r[14] || ''),
+    codeSap: String(r[15] || '')
   };
 }
 
@@ -260,7 +262,9 @@ function orderToRow_(o) {
     Number(o.picked) || 0,
     orderStatus_(o),
     o.updatedAt || '',
-    o.toWarehouse || ''
+    o.toWarehouse || '',
+    String(o.customerSap || '').trim(),
+    String(o.codeSap || '').trim().toUpperCase()
   ];
 }
 

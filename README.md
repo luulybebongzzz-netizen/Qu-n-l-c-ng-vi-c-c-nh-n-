@@ -4,7 +4,7 @@
 
 **CongViec**: ID · Tiêu đề · Mô tả · Trạng thái · Ưu tiên · Người phụ trách · Ngày bắt đầu · Hạn chót · Nhãn · Tiến độ (%) · Người tạo · Ngày tạo · Cập nhật lúc
 
-**DonHang**: ID · Ngày nhận đơn · Khách hàng · Mã hàng · SL đặt · ĐVT · Kho (lấy hàng) · Ngày nhận dự kiến · Người gửi · Ghi chú · SL đã lấy · Trạng thái · Cập nhật lúc · Kho nhận hàng (mỗi dòng là một mã hàng của một đơn)
+**DonHang**: ID · Ngày nhận đơn · Khách hàng · Mã hàng · SL đặt · ĐVT · Kho (lấy hàng) · Ngày nhận dự kiến · Người gửi · Ghi chú · SL đã lấy · Trạng thái · Cập nhật lúc · Kho nhận hàng · Mã KH SAP · Mã hàng SAP (app tự điền lại mã SAP đã dùng cho cùng khách / cùng mã hàng) (mỗi dòng là một mã hàng của một đơn)
 
 **ThanhVien**: Tên · Email · Vai trò (danh sách người để giao việc; cột Email dùng cho mục "Của tôi")
 
