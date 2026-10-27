@@ -143,12 +143,12 @@ tbody tr:hover{background:var(--surface-2)}
 .order-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
 .order-item{display:flex;justify-content:space-between;gap:8px;margin-top:8px;padding:8px 10px;background:var(--surface-2);border-radius:8px;font-size:15px}
 .order-card .row .title{flex:1}
-.parsed-row{display:grid;grid-template-columns:1.3fr 1.3fr 1fr .8fr 1fr 1.2fr auto;gap:6px;margin-bottom:8px;align-items:center}
+.parsed-row{display:grid;grid-template-columns:1.3fr 1.3fr 1fr .8fr .8fr 1fr 1.2fr auto;gap:6px;margin-bottom:8px;align-items:center}
 .parsed-row input,.paste-opts input{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;outline:none;min-width:0;width:100%}
 .parsed-row input:focus{border-color:var(--primary)}
 .qty-unit{display:flex;gap:4px}
 .qty-unit input:last-child{width:56px;flex:none}
-.paste-opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.paste-opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 #pasteText{width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;outline:none;resize:vertical}
 .modal.wide{max-width:980px}
 .modal-body.block{display:block}
@@ -175,6 +175,7 @@ tbody tr:hover{background:var(--surface-2)}
   .kanban{grid-template-columns:repeat(var(--cols,4),86%);gap:12px;margin:0 -16px;padding:0 16px 10px}
   .move-btn{display:inline-block}
   .order-grid{grid-template-columns:1fr}
+  .paste-opts{grid-template-columns:1fr 1fr}
   .parsed-row{grid-template-columns:1fr 1fr;padding:10px;border:1px solid var(--border);border-radius:10px}
   .parsed-row .icon-btn{grid-column:2;justify-self:end}
   #topAddManual{display:none!important}
@@ -295,7 +296,8 @@ tbody tr:hover{background:var(--surface-2)}
       <textarea id="pasteText" placeholder="Dán tin nhắn Zalo vào đây, ví dụ:&#10;&#10;Quỳnh An&#10;2080banyan002 20m&#10;thứ 2 tuần sau khách nhận&#10;&#10;(Có thể dán nhiều tin, cách nhau một dòng trống)"></textarea>
       <div class="paste-opts">
         <div class="field"><label>Người gửi đơn</label><input id="pasteSender" list="dlSenders" placeholder="Ví dụ: Ngọc Vĩ"></div>
-        <div class="field"><label>Kho</label><input id="pasteWarehouse" list="dlWarehouses" placeholder="Ví dụ: Kho 1"></div>
+        <div class="field"><label>Kho lấy hàng</label><input id="pasteWarehouse" list="dlWarehouses" placeholder="Ví dụ: 1111"></div>
+        <div class="field"><label>Kho nhận hàng</label><input id="pasteToWarehouse" list="dlToWarehouses" placeholder="Ví dụ: Cần Thơ"></div>
       </div>
       <button type="button" class="btn btn-ghost" onclick="previewParsed()">Tách đơn ↓</button>
       <div id="pastePreview"></div>
@@ -319,7 +321,8 @@ tbody tr:hover{background:var(--surface-2)}
       <input type="hidden" name="id"><input type="hidden" name="createdAt">
       <div class="field full"><label>Khách hàng *</label><input name="customer" list="dlCustomers" required></div>
       <div class="field"><label>Mã hàng *</label><input name="code" list="dlCodes" required></div>
-      <div class="field"><label>Kho</label><input name="warehouse" list="dlWarehouses"></div>
+      <div class="field"><label>Kho lấy hàng</label><input name="warehouse" list="dlWarehouses"></div>
+      <div class="field"><label>Kho nhận hàng</label><input name="toWarehouse" list="dlToWarehouses"></div>
       <div class="field"><label>SL đặt *</label><input name="qty" type="number" step="any" required></div>
       <div class="field"><label>Đơn vị tính</label><input name="unit" placeholder="m2, viên, thùng..."></div>
       <div class="field"><label>Ngày khách nhận</label><input name="pickupDate" type="date"></div>
@@ -338,7 +341,7 @@ tbody tr:hover{background:var(--surface-2)}
   </form>
 </div>
 
-<datalist id="dlCustomers"></datalist><datalist id="dlCodes"></datalist><datalist id="dlWarehouses"></datalist><datalist id="dlSenders"></datalist>
+<datalist id="dlCustomers"></datalist><datalist id="dlCodes"></datalist><datalist id="dlWarehouses"></datalist><datalist id="dlToWarehouses"></datalist><datalist id="dlSenders"></datalist>
 
 <div class="toast" id="toast"></div>
 
@@ -405,7 +408,7 @@ const Demo = {
     try { const s = JSON.parse(localStorage.getItem('demoOrders')); if (s) return s; } catch (e) {}
     const d = (n) => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
     return [
-      {id:'DH1',createdAt:d(-2),customer:'Quỳnh An',code:'2080BANYAN002',qty:20,unit:'m2',warehouse:'Kho 1',pickupDate:d(0),sender:'Ngọc Vĩ',note:'',picked:0,status:'Chưa lấy'},
+      {id:'DH1',createdAt:d(-2),customer:'Quỳnh An',code:'2080BANYAN002',qty:20,unit:'m2',warehouse:'1111',toWarehouse:'Cần Thơ',pickupDate:d(0),sender:'Ngọc Vĩ',note:'',picked:0,status:'Chưa lấy'},
       {id:'DH2',createdAt:d(-5),customer:'Nam Phú',code:'6060MARBLE011',qty:50,unit:'m2',warehouse:'Kho 2',pickupDate:d(-1),sender:'Ngọc Vĩ',note:'',picked:20,status:'Lấy một phần'}
     ];
   },
@@ -826,7 +829,7 @@ function filteredOrders() {
   const q = $('oSearch').value.trim().toLowerCase();
   const st = $('oStatus').value, wh = $('oWarehouse').value, se = $('oSender').value;
   return S.orders.filter(o => {
-    if (q && !`${o.customer} ${o.code} ${o.note} ${o.sender}`.toLowerCase().includes(q)) return false;
+    if (q && !`${o.customer} ${o.code} ${o.note} ${o.sender} ${o.warehouse} ${o.toWarehouse}`.toLowerCase().includes(q)) return false;
     if (st === 'open' && !orderOpen(o)) return false;
     if (st && st !== 'open' && o.status !== st) return false;
     if (wh && o.warehouse !== wh) return false;
@@ -877,7 +880,8 @@ function orderCardHtml(o) {
   return `<div class="task-card order-card" style="--prio:${c}" onclick="openOrder('${esc(o.id)}')">
     <div class="row" style="margin-top:0"><div class="title">${esc(o.customer)}</div>${badge(ORDER_STATUSES, o.status)}</div>
     <div class="order-item"><b>${esc(o.code)}</b><span>${fmtQty(o.qty)} ${esc(o.unit)}</span></div>
-    <div class="row">${pickupHtml(o)}<span class="t-sub">${esc([o.warehouse, o.sender].filter(Boolean).join(' · '))}</span></div>
+    <div class="row">${pickupHtml(o)}<span class="t-sub">${esc(o.sender)}</span></div>
+    ${o.warehouse || o.toWarehouse ? `<div class="t-sub" style="margin-top:6px">🏭 ${esc(o.warehouse || '?')} → 📍 ${esc(o.toWarehouse || '?')}</div>` : ''}
     ${o.note ? `<div class="t-sub" style="margin-top:6px">${esc(o.note)}</div>` : ''}
     <div class="row"><div class="progress" style="flex:1"><span style="width:${pct}%;background:${c}"></span></div>
       <span class="t-sub">Đã lấy ${fmtQty(o.picked)}/${fmtQty(o.qty)}</span></div>
@@ -902,10 +906,11 @@ function orderStats(list) {
 function buildOrderSelects() {
   const uniq = (k) => [...new Set(S.orders.map(o => o[k]).filter(Boolean))].sort();
   const keep = (id, html) => { const el = $(id), v = el.value; el.innerHTML = html; el.value = v; };
-  keep('oWarehouse', '<option value="">Mọi kho</option>' + uniq('warehouse').map(x => `<option>${esc(x)}</option>`).join(''));
+  keep('oWarehouse', '<option value="">Mọi kho lấy</option>' + uniq('warehouse').map(x => `<option>${esc(x)}</option>`).join(''));
   keep('oSender', '<option value="">Mọi người gửi</option>' + uniq('sender').map(x => `<option>${esc(x)}</option>`).join(''));
   $('dlCustomers').innerHTML = uniq('customer').map(x => `<option value="${esc(x)}">`).join('');
   $('dlCodes').innerHTML = uniq('code').map(x => `<option value="${esc(x)}">`).join('');
+  $('dlToWarehouses').innerHTML = uniq('toWarehouse').map(x => `<option value="${esc(x)}">`).join('');
   $('dlWarehouses').innerHTML = uniq('warehouse').map(x => `<option value="${esc(x)}">`).join('');
   $('dlSenders').innerHTML = uniq('sender').map(x => `<option value="${esc(x)}">`).join('');
 }
@@ -932,7 +937,7 @@ function openPaste() {
   $('pasteText').value = '';
   $('pastePreview').innerHTML = '';
   $('btnSaveParsed').style.display = 'none';
-  try { $('pasteSender').value = localStorage.getItem('lastSender') || ''; $('pasteWarehouse').value = localStorage.getItem('lastWarehouse') || ''; } catch (e) {}
+  try { $('pasteSender').value = localStorage.getItem('lastSender') || ''; $('pasteWarehouse').value = localStorage.getItem('lastWarehouse') || ''; $('pasteToWarehouse').value = localStorage.getItem('lastToWarehouse') || ''; } catch (e) {}
   buildOrderSelects();
   $('pasteOverlay').classList.add('show');
   if (window.innerWidth > 768) setTimeout(() => $('pasteText').focus(), 50);
@@ -940,12 +945,13 @@ function openPaste() {
 function closePaste() { $('pasteOverlay').classList.remove('show'); }
 
 function parsedRowHtml(r) {
-  const wh = $('pasteWarehouse').value.trim();
+  const wh = $('pasteWarehouse').value.trim(), toWh = $('pasteToWarehouse').value.trim();
   return `<div class="parsed-row">
       <input data-k="customer" list="dlCustomers" value="${esc(r.customer)}" placeholder="Khách hàng">
       <input data-k="code" list="dlCodes" value="${esc(r.code)}" placeholder="Mã hàng">
       <div class="qty-unit"><input data-k="qty" type="number" step="any" value="${r.qty}" placeholder="SL"><input data-k="unit" value="${esc(r.unit)}" placeholder="ĐVT"></div>
-      <input data-k="warehouse" list="dlWarehouses" value="${esc(r.warehouse ?? wh)}" placeholder="Kho">
+      <input data-k="warehouse" list="dlWarehouses" value="${esc(r.warehouse ?? wh)}" placeholder="Kho lấy">
+      <input data-k="toWarehouse" list="dlToWarehouses" value="${esc(r.toWarehouse ?? toWh)}" placeholder="Kho nhận">
       <input data-k="pickupDate" type="date" value="${r.pickupDate}">
       <input data-k="note" value="${esc(r.note)}" placeholder="Ghi chú">
       <button type="button" class="icon-btn" title="Bỏ dòng này" onclick="this.parentElement.remove()">✕</button>
@@ -968,7 +974,7 @@ function addParsedRow() {
   const last = rows[rows.length - 1];
   const val = (k) => last ? last.querySelector(`[data-k="${k}"]`).value : '';
   // Dòng mới giữ lại khách, kho, ngày nhận của dòng trên để gõ nhanh
-  $('parsedRows').insertAdjacentHTML('beforeend', parsedRowHtml({ customer: val('customer'), code: '', qty: '', unit: val('unit'), warehouse: val('warehouse'), pickupDate: val('pickupDate'), note: '' }));
+  $('parsedRows').insertAdjacentHTML('beforeend', parsedRowHtml({ customer: val('customer'), code: '', qty: '', unit: val('unit'), warehouse: val('warehouse'), toWarehouse: val('toWarehouse'), pickupDate: val('pickupDate'), note: '' }));
   $('parsedRows').lastElementChild.querySelector('[data-k="code"]').focus();
 }
 
@@ -984,7 +990,7 @@ async function saveParsed() {
   if (!rows.length) return toast('Không có dòng nào để lưu', true);
   const bad = rows.findIndex(o => !o.customer || !o.code);
   if (bad >= 0) return toast(`Dòng ${bad + 1} thiếu khách hàng hoặc mã hàng`, true);
-  try { localStorage.setItem('lastSender', sender); localStorage.setItem('lastWarehouse', $('pasteWarehouse').value.trim()); } catch (e) {}
+  try { localStorage.setItem('lastSender', sender); localStorage.setItem('lastWarehouse', $('pasteWarehouse').value.trim()); localStorage.setItem('lastToWarehouse', $('pasteToWarehouse').value.trim()); } catch (e) {}
   const btn = $('btnSaveParsed'); btn.disabled = true; btn.textContent = 'Đang lưu...';
   try {
     const saved = await api('saveOrders', rows);
@@ -1002,9 +1008,9 @@ function openOrder(id) {
   $('orderTitle').textContent = o ? 'Chi tiết đơn hàng' : 'Thêm đơn hàng';
   $('btnDeleteOrder').style.display = o ? '' : 'none';
   let last = {};
-  try { last = { sender: localStorage.getItem('lastSender') || '', warehouse: localStorage.getItem('lastWarehouse') || '' }; } catch (e) {}
+  try { last = { sender: localStorage.getItem('lastSender') || '', warehouse: localStorage.getItem('lastWarehouse') || '', toWarehouse: localStorage.getItem('lastToWarehouse') || '' }; } catch (e) {}
   const data = o || { ...last, qty: '', picked: 0, status: 'Chưa lấy', createdAt: todayStr() };
-  ['id', 'customer', 'code', 'qty', 'unit', 'warehouse', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
+  ['id', 'customer', 'code', 'qty', 'unit', 'warehouse', 'toWarehouse', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
   f.elements.cancelled.checked = data.status === 'Huỷ';
   $('orderMeta').textContent = o ? `Mã: ${o.id} · Nhận đơn ${fmtDate(o.createdAt)}${o.updatedAt ? ' · Cập nhật ' + o.updatedAt.replace('T', ' ') : ''}` : '';
   $('orderOverlay').classList.add('show');

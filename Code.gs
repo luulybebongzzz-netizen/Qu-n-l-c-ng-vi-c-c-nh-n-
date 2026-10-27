@@ -15,7 +15,8 @@ const TASK_HEADERS = [
 ];
 const ORDER_HEADERS = [
   'ID', 'Ngày nhận đơn', 'Khách hàng', 'Mã hàng', 'SL đặt', 'ĐVT', 'Kho',
-  'Ngày nhận dự kiến', 'Người gửi', 'Ghi chú', 'SL đã lấy', 'Trạng thái', 'Cập nhật lúc'
+  'Ngày nhận dự kiến', 'Người gửi', 'Ghi chú', 'SL đã lấy', 'Trạng thái', 'Cập nhật lúc',
+  'Kho nhận hàng'
 ];
 const MEMBER_HEADERS = ['Tên', 'Email', 'Vai trò'];
 const SETTING_HEADERS = ['Loại', 'Giá trị', 'Màu'];
@@ -97,6 +98,10 @@ function ensureSheet_(ss, name, headers) {
     sh.getRange(1, 1, 1, headers.length).setValues([headers])
       .setFontWeight('bold').setBackground('#1e293b').setFontColor('#ffffff');
     sh.setFrozenRows(1);
+  } else if (sh.getLastColumn() < headers.length) {
+    // Bổ sung cột mới (thêm ở cuối) cho sheet tạo từ phiên bản cũ
+    sh.getRange(1, 1, 1, headers.length).setValues([headers])
+      .setFontWeight('bold').setBackground('#1e293b').setFontColor('#ffffff');
   }
   return sh;
 }
@@ -235,7 +240,8 @@ function rowToOrder_(r) {
     note: String(r[9] || ''),
     picked: Number(r[10]) || 0,
     status: String(r[11] || 'Chưa lấy'),
-    updatedAt: toDateTimeStr_(r[12])
+    updatedAt: toDateTimeStr_(r[12]),
+    toWarehouse: String(r[13] || '')
   };
 }
 
@@ -253,7 +259,8 @@ function orderToRow_(o) {
     o.note || '',
     Number(o.picked) || 0,
     orderStatus_(o),
-    o.updatedAt || ''
+    o.updatedAt || '',
+    o.toWarehouse || ''
   ];
 }
 
