@@ -149,7 +149,12 @@ tbody tr:hover{background:var(--surface-2)}
 .parsed-row input:focus{border-color:var(--primary)}
 .qty-unit{display:flex;gap:4px}
 .qty-unit input:last-child{width:56px;flex:none}
-.paste-opts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.paste-opts{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+.paste-opts select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;outline:none;width:100%}
+.area-switch{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px}
+.area-switch button{padding:6px 12px;border-radius:8px;font-weight:600;color:var(--muted);white-space:nowrap}
+.area-switch button.active{background:var(--primary);color:#fff}
+.area-tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;background:var(--primary-soft);color:var(--primary);margin-right:6px;vertical-align:middle}
 #pasteText{width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;outline:none;resize:vertical}
 .modal.wide{max-width:980px}
 .modal-body.block{display:block}
@@ -177,6 +182,7 @@ tbody tr:hover{background:var(--surface-2)}
   .move-btn{display:inline-block}
   .order-grid{grid-template-columns:1fr}
   .paste-opts{grid-template-columns:1fr 1fr}
+  .area-switch button{padding:6px 9px}
   .parsed-row{grid-template-columns:1fr 1fr;padding:10px;border:1px solid var(--border);border-radius:10px}
   .parsed-row .icon-btn{grid-column:2;justify-self:end}
   #topAddManual{display:none!important}
@@ -208,6 +214,7 @@ tbody tr:hover{background:var(--surface-2)}
   <main class="main">
     <header class="topbar">
       <h1 id="pageTitle">Tổng quan</h1>
+      <div class="area-switch" id="areaSwitch"></div>
       <button class="icon-btn" title="Tải lại" onclick="reload()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
       <button class="btn btn-ghost" id="topAddManual" onclick="openOrder()" style="display:none">+ Thêm đơn tay</button>
       <button class="btn btn-primary" id="topAdd" onclick="addAction()">+ Thêm công việc</button>
@@ -271,6 +278,7 @@ tbody tr:hover{background:var(--surface-2)}
       <div class="field"><label>Trạng thái</label><select name="status" id="iStatus"></select></div>
       <div class="field"><label>Ưu tiên</label><select name="priority" id="iPriority"></select></div>
       <div class="field"><label>Người phụ trách</label><select name="assignee" id="iAssignee"></select></div>
+      <div class="field"><label>Khu vực</label><select name="area" class="area-select"></select></div>
       <div class="field"><label>Nhãn (cách nhau dấu phẩy)</label><input name="tags" placeholder="kế toán, khách hàng"></div>
       <div class="field"><label>Ngày bắt đầu</label><input type="date" name="startDate"></div>
       <div class="field"><label>Hạn chót</label><input type="date" name="dueDate"></div>
@@ -299,6 +307,7 @@ tbody tr:hover{background:var(--surface-2)}
         <div class="field"><label>Người gửi đơn</label><input id="pasteSender" list="dlSenders" placeholder="Ví dụ: Ngọc Vĩ"></div>
         <div class="field"><label>Kho lấy hàng</label><input id="pasteWarehouse" list="dlWarehouses" placeholder="Ví dụ: 1111"></div>
         <div class="field"><label>Kho nhận hàng</label><input id="pasteToWarehouse" list="dlToWarehouses" placeholder="Ví dụ: Cần Thơ"></div>
+        <div class="field"><label>Khu vực</label><select id="pasteArea" class="area-select"></select></div>
       </div>
       <button type="button" class="btn btn-ghost" onclick="previewParsed()">Tách đơn ↓</button>
       <div id="pastePreview"></div>
@@ -322,6 +331,7 @@ tbody tr:hover{background:var(--surface-2)}
       <input type="hidden" name="id"><input type="hidden" name="createdAt">
       <div class="field full"><label>Khách hàng *</label><input name="customer" list="dlCustomers" required onchange="fillSap(this.form)"></div>
       <div class="field"><label>Mã hàng *</label><input name="code" list="dlCodes" required onchange="fillSap(this.form)"></div>
+      <div class="field"><label>Khu vực</label><select name="area" class="area-select"></select></div>
       <div class="field"><label>Mã KH SAP</label><input name="customerSap" placeholder="Mã khách trên SAP"></div>
       <div class="field"><label>Mã hàng SAP</label><input name="codeSap" placeholder="Mã vật tư (Material)"></div>
       <div class="field"><label>Kho lấy hàng</label><input name="warehouse" list="dlWarehouses"></div>
@@ -429,7 +439,7 @@ const Demo = {
 };
 
 /* ---------- Trạng thái ---------- */
-const S = { tasks: [], orders: [], members: [], statuses: [], priorities: [], view: 'dashboard' };
+const S = { tasks: [], orders: [], area: '', members: [], statuses: [], priorities: [], view: 'dashboard' };
 const VIEWS = [
   { id: 'dashboard', label: 'Tổng quan', icon: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>' },
   { id: 'list', label: 'Danh sách', icon: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>' },
@@ -480,7 +490,8 @@ async function init() {
   try {
     const d = await api('getInitialData');
     Object.assign(S, d);
-    buildNav(); buildSelects();
+    try { S.area = localStorage.getItem('area') || ''; } catch (e) { S.area = ''; }
+    buildNav(); buildSelects(); buildAreaSwitch();
     try { S.view = localStorage.getItem('view') || 'dashboard'; } catch (e) {}
     setView(S.view);
     if (!IS_GAS && !API_URL) toast('Đang chạy chế độ demo (dữ liệu lưu trên trình duyệt)');
@@ -525,6 +536,29 @@ function addAction() {
   if (S.view === 'orders') openPaste(); else openForm();
 }
 
+/* ---------- Khu vực ---------- */
+const AREAS = ['27', '23'];
+
+function buildAreaSwitch() {
+  $('areaSwitch').innerHTML = [['', 'Tất cả'], ...AREAS.map(a => [a, 'KV ' + a])]
+    .map(([v, l]) => `<button class="${S.area === v ? 'active' : ''}" onclick="setArea('${v}')">${l}</button>`).join('');
+  document.querySelectorAll('.area-select').forEach(sel => {
+    const v = sel.value;
+    sel.innerHTML = '<option value="">— Chưa chọn —</option>' + AREAS.map(a => `<option value="${a}">Khu vực ${a}</option>`).join('');
+    sel.value = v;
+  });
+}
+
+function setArea(a) {
+  S.area = a;
+  try { localStorage.setItem('area', a); } catch (e) {}
+  buildAreaSwitch(); render();
+}
+
+// Dữ liệu chưa gán khu vực thì hiện ở mọi khu vực
+const inArea = (x) => !S.area || !x.area || x.area === S.area;
+const areaTag = (x) => x.area ? `<span class="area-tag">KV ${esc(x.area)}</span>` : '';
+
 function toggleTheme() {
   const dark = document.documentElement.dataset.theme !== 'dark';
   document.documentElement.dataset.theme = dark ? 'dark' : '';
@@ -554,7 +588,7 @@ function filtered() {
   const q = $('fSearch').value.trim().toLowerCase();
   const st = $('fStatus').value, pr = $('fPriority').value, as = $('fAssignee').value, du = $('fDue').value;
   const me = myName();
-  return S.tasks.filter(t => {
+  return S.tasks.filter(inArea).filter(t => {
     if (S.view === 'mine' && me && t.assignee !== me) return false;
     if (q && !(`${t.title} ${t.description} ${t.tags} ${t.assignee}`.toLowerCase().includes(q))) return false;
     if (st && t.status !== st) return false;
@@ -586,7 +620,7 @@ function cardHtml(t, withMove) {
   const idx = S.statuses.findIndex(s => s.name === t.status);
   const next = S.statuses[idx + 1];
   return `<div class="task-card" draggable="true" data-id="${esc(t.id)}" style="--prio:${colorOf(S.priorities, t.priority)}" onclick="openForm('${esc(t.id)}')">
-    <div class="title">${esc(t.title)}</div>
+    <div class="title">${areaTag(t)}${esc(t.title)}</div>
     ${tagsHtml(t) ? `<div>${tagsHtml(t)}</div>` : ''}
     <div class="row">${dueHtml(t)}${t.assignee ? `<span class="who"><span class="avatar" title="${esc(t.assignee)}">${esc(initials(t.assignee))}</span></span>` : ''}</div>
     ${!withMove ? `<div class="row">${badge(S.statuses, t.status)}${badge(S.priorities, t.priority)}</div>` : ''}
@@ -595,7 +629,7 @@ function cardHtml(t, withMove) {
 }
 
 function renderDashboard() {
-  const all = S.tasks, total = all.length;
+  const all = S.tasks.filter(inArea), total = all.length;
   const done = all.filter(isDone).length;
   const overdue = all.filter(t => !isDone(t) && t.dueDate && daysLeft(t.dueDate) < 0);
   const doing = all.filter(t => t.status === 'Đang làm').length;
@@ -612,7 +646,7 @@ function renderDashboard() {
     return `<div class="bar-row"><span class="name">${esc(m.name)}</span><div class="bar"><span style="width:${mine.length ? d / mine.length * 100 : 0}%;background:var(--ok)"></span></div><span class="num">${d}/${mine.length}</span></div>`;
   }).join('');
 
-  const os = orderStats(S.orders);
+  const os = orderStats(S.orders.filter(inArea));
   const orderBanner = S.orders.length ? `<div class="panel" style="margin-bottom:16px;cursor:pointer" onclick="setView('orders')">
       <h3>📦 Đơn hàng chưa lấy</h3>
       <div style="display:flex;flex-wrap:wrap;gap:8px 24px">
@@ -699,8 +733,8 @@ function openForm(id) {
   const t = id ? S.tasks.find(x => x.id === id) : null;
   $('formTitle').textContent = t ? 'Chi tiết công việc' : 'Thêm công việc';
   $('btnDelete').style.display = t ? '' : 'none';
-  const data = t || { status: S.statuses[0] && S.statuses[0].name, priority: 'Trung bình', progress: 0, assignee: S.view === 'mine' ? myName() : '' };
-  ['id', 'title', 'description', 'status', 'priority', 'assignee', 'tags', 'startDate', 'dueDate', 'progress'].forEach(k => {
+  const data = t || { status: S.statuses[0] && S.statuses[0].name, priority: 'Trung bình', progress: 0, area: S.area, assignee: S.view === 'mine' ? myName() : '' };
+  ['id', 'title', 'description', 'status', 'priority', 'assignee', 'area', 'tags', 'startDate', 'dueDate', 'progress'].forEach(k => {
     if (f.elements[k]) f.elements[k].value = data[k] ?? '';
   });
   $('progressVal').textContent = data.progress || 0;
@@ -831,7 +865,7 @@ function parseZalo(text, base = new Date()) {
 function filteredOrders() {
   const q = $('oSearch').value.trim().toLowerCase();
   const st = $('oStatus').value, wh = $('oWarehouse').value, se = $('oSender').value;
-  return S.orders.filter(o => {
+  return S.orders.filter(inArea).filter(o => {
     if (q && !`${o.customer} ${o.code} ${o.note} ${o.sender} ${o.warehouse} ${o.toWarehouse} ${o.customerSap} ${o.codeSap}`.toLowerCase().includes(q)) return false;
     if (st === 'open' && !orderOpen(o)) return false;
     if (st && st !== 'open' && o.status !== st) return false;
@@ -881,7 +915,7 @@ function orderCardHtml(o) {
   const pct = o.qty ? Math.min(100, Math.round(o.picked / o.qty * 100)) : 0;
   const c = colorOf(ORDER_STATUSES, o.status);
   return `<div class="task-card order-card" style="--prio:${c}" onclick="openOrder('${esc(o.id)}')">
-    <div class="row" style="margin-top:0"><div class="title">${esc(o.customer)}</div>${badge(ORDER_STATUSES, o.status)}</div>
+    <div class="row" style="margin-top:0"><div class="title">${areaTag(o)}${esc(o.customer)}</div>${badge(ORDER_STATUSES, o.status)}</div>
     ${o.customerSap ? `<div class="t-sub">KH SAP: ${esc(o.customerSap)}</div>` : ''}
     <div class="order-item"><span><b>${esc(o.code)}</b>${o.codeSap && o.codeSap !== o.code ? `<br><span class="t-sub">SAP: ${esc(o.codeSap)}</span>` : ''}</span><span>${fmtQty(o.qty)} ${esc(o.unit)}</span></div>
     <div class="row">${pickupHtml(o)}<span class="t-sub">${esc(o.sender)}</span></div>
@@ -922,7 +956,7 @@ function buildOrderSelects() {
 function renderOrders() {
   buildOrderSelects();
   const list = filteredOrders();
-  const s = orderStats(S.orders);
+  const s = orderStats(S.orders.filter(inArea));
   const stats = `<div class="stats">
     <div class="stat"><div class="label">Dòng hàng chưa lấy</div><div class="value">${s.open}</div><div class="t-sub">${s.customers} khách</div></div>
     <div class="stat"><div class="label">Hôm nay khách nhận</div><div class="value" style="color:#2563eb">${s.today}</div></div>
@@ -941,6 +975,7 @@ function openPaste() {
   $('pasteText').value = '';
   $('pastePreview').innerHTML = '';
   $('btnSaveParsed').style.display = 'none';
+  $('pasteArea').value = S.area;
   try { $('pasteSender').value = localStorage.getItem('lastSender') || ''; $('pasteWarehouse').value = localStorage.getItem('lastWarehouse') || ''; $('pasteToWarehouse').value = localStorage.getItem('lastToWarehouse') || ''; } catch (e) {}
   buildOrderSelects();
   $('pasteOverlay').classList.add('show');
@@ -1008,7 +1043,7 @@ async function saveParsed() {
   const sender = $('pasteSender').value.trim();
   const today = todayStr();
   const rows = [...document.querySelectorAll('#pastePreview .parsed-row')].map(el => {
-    const o = { sender, createdAt: today, picked: 0, status: 'Chưa lấy' };
+    const o = { sender, createdAt: today, picked: 0, status: 'Chưa lấy', area: $('pasteArea').value };
     el.querySelectorAll('[data-k]').forEach(inp => o[inp.dataset.k] = inp.value.trim());
     o.qty = Number(o.qty) || 0;
     return o;
@@ -1040,8 +1075,8 @@ function openOrder(id) {
   $('btnDeleteOrder').style.display = o ? '' : 'none';
   let last = {};
   try { last = { sender: localStorage.getItem('lastSender') || '', warehouse: localStorage.getItem('lastWarehouse') || '', toWarehouse: localStorage.getItem('lastToWarehouse') || '' }; } catch (e) {}
-  const data = o || { ...last, qty: '', picked: 0, status: 'Chưa lấy', createdAt: todayStr() };
-  ['id', 'customer', 'code', 'qty', 'unit', 'warehouse', 'toWarehouse', 'customerSap', 'codeSap', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
+  const data = o || { ...last, area: S.area, qty: '', picked: 0, status: 'Chưa lấy', createdAt: todayStr() };
+  ['id', 'customer', 'code', 'qty', 'unit', 'warehouse', 'toWarehouse', 'customerSap', 'codeSap', 'area', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
   f.elements.cancelled.checked = data.status === 'Huỷ';
   $('orderMeta').textContent = o ? `Mã: ${o.id} · Nhận đơn ${fmtDate(o.createdAt)}${o.updatedAt ? ' · Cập nhật ' + o.updatedAt.replace('T', ' ') : ''}` : '';
   $('orderOverlay').classList.add('show');

@@ -2,9 +2,9 @@
 
 ## Cấu trúc Google Sheet (tự tạo khi chạy lần đầu)
 
-**CongViec**: ID · Tiêu đề · Mô tả · Trạng thái · Ưu tiên · Người phụ trách · Ngày bắt đầu · Hạn chót · Nhãn · Tiến độ (%) · Người tạo · Ngày tạo · Cập nhật lúc
+**CongViec**: ID · Tiêu đề · Mô tả · Trạng thái · Ưu tiên · Người phụ trách · Ngày bắt đầu · Hạn chót · Nhãn · Tiến độ (%) · Người tạo · Ngày tạo · Cập nhật lúc · Khu vực
 
-**DonHang**: ID · Ngày nhận đơn · Khách hàng · Mã hàng · SL đặt · ĐVT · Kho (lấy hàng) · Ngày nhận dự kiến · Người gửi · Ghi chú · SL đã lấy · Trạng thái · Cập nhật lúc · Kho nhận hàng · Mã KH SAP · Mã hàng SAP (app tự điền lại mã SAP đã dùng cho cùng khách / cùng mã hàng) (mỗi dòng là một mã hàng của một đơn)
+**DonHang**: ID · Ngày nhận đơn · Khách hàng · Mã hàng · SL đặt · ĐVT · Kho (lấy hàng) · Ngày nhận dự kiến · Người gửi · Ghi chú · SL đã lấy · Trạng thái · Cập nhật lúc · Kho nhận hàng · Mã KH SAP · Mã hàng SAP · Khu vực (app tự điền lại mã SAP đã dùng cho cùng khách / cùng mã hàng) (mỗi dòng là một mã hàng của một đơn)
 
 **ThanhVien**: Tên · Email · Vai trò (danh sách người để giao việc; cột Email dùng cho mục "Của tôi")
 
@@ -19,6 +19,7 @@
 - Lọc theo từ khoá, trạng thái, ưu tiên, người phụ trách, hạn chót (quá hạn / hôm nay / 7 ngày tới).
 - Thêm, sửa, xoá công việc; tiến độ %, nhãn, ngày bắt đầu, hạn chót; tô màu việc trễ hạn.
 - Đơn hàng: dán tin Zalo (ví dụ "Quỳnh An / 2080banyan002 20m / thứ 2 tuần sau khách nhận"), app tự tách khách hàng, mã hàng, số lượng, ngày nhận; xem trước, sửa, thêm dòng rồi lưu. Có nút thêm đơn tay. Đơn được nhóm theo Quá hẹn / Hôm nay / Ngày mai / Sắp nhận, bấm "Khách đã lấy đủ" để đóng đơn.
+- Khu vực: nút Tất cả / KV 27 / KV 23 trên cùng lọc toàn bộ app; đơn và việc mới tự gán khu vực đang chọn, dữ liệu chưa gán khu vực hiện ở mọi khu vực.
 - Giao diện tối, nhớ màn hình đang xem.
 
 ## Cài đặt

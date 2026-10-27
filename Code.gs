@@ -11,12 +11,12 @@ const SHEET_ORDERS = 'DonHang';
 const TASK_HEADERS = [
   'ID', 'Tiêu đề', 'Mô tả', 'Trạng thái', 'Ưu tiên', 'Người phụ trách',
   'Ngày bắt đầu', 'Hạn chót', 'Nhãn', 'Tiến độ (%)', 'Người tạo',
-  'Ngày tạo', 'Cập nhật lúc'
+  'Ngày tạo', 'Cập nhật lúc', 'Khu vực'
 ];
 const ORDER_HEADERS = [
   'ID', 'Ngày nhận đơn', 'Khách hàng', 'Mã hàng', 'SL đặt', 'ĐVT', 'Kho',
   'Ngày nhận dự kiến', 'Người gửi', 'Ghi chú', 'SL đã lấy', 'Trạng thái', 'Cập nhật lúc',
-  'Kho nhận hàng', 'Mã KH SAP', 'Mã hàng SAP'
+  'Kho nhận hàng', 'Mã KH SAP', 'Mã hàng SAP', 'Khu vực'
 ];
 const MEMBER_HEADERS = ['Tên', 'Email', 'Vai trò'];
 const SETTING_HEADERS = ['Loại', 'Giá trị', 'Màu'];
@@ -243,7 +243,8 @@ function rowToOrder_(r) {
     updatedAt: toDateTimeStr_(r[12]),
     toWarehouse: String(r[13] || ''),
     customerSap: String(r[14] || ''),
-    codeSap: String(r[15] || '')
+    codeSap: String(r[15] || ''),
+    area: String(r[16] || '')
   };
 }
 
@@ -264,7 +265,8 @@ function orderToRow_(o) {
     o.updatedAt || '',
     o.toWarehouse || '',
     String(o.customerSap || '').trim(),
-    String(o.codeSap || '').trim().toUpperCase()
+    String(o.codeSap || '').trim().toUpperCase(),
+    o.area || ''
   ];
 }
 
@@ -324,7 +326,8 @@ function rowToTask_(r) {
     progress: Number(r[9]) || 0,
     createdBy: String(r[10] || ''),
     createdAt: toDateTimeStr_(r[11]),
-    updatedAt: toDateTimeStr_(r[12])
+    updatedAt: toDateTimeStr_(r[12]),
+    area: String(r[13] || '')
   };
 }
 
@@ -342,6 +345,7 @@ function taskToRow_(t) {
     Math.max(0, Math.min(100, Number(t.progress) || 0)),
     t.createdBy || '',
     t.createdAt || '',
-    t.updatedAt || ''
+    t.updatedAt || '',
+    t.area || ''
   ];
 }
