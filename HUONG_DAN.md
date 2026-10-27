@@ -19,7 +19,7 @@
 - Lọc theo từ khoá, trạng thái, ưu tiên, người phụ trách, hạn chót (quá hạn / hôm nay / 7 ngày tới).
 - Thêm, sửa, xoá công việc; tiến độ %, nhãn, ngày bắt đầu, hạn chót; tô màu việc trễ hạn.
 - Đơn hàng: dán tin Zalo (ví dụ "Quỳnh An / 2080banyan002 20m / thứ 2 tuần sau khách nhận"), app tự tách khách hàng, mã hàng, số lượng, ngày nhận; xem trước, sửa, thêm dòng rồi lưu. Có nút thêm đơn tay. Đơn được nhóm theo Quá hẹn / Hôm nay / Ngày mai / Sắp nhận, bấm "Khách đã lấy đủ" để đóng đơn.
-- Khu vực: nút Tất cả / KV 27 / KV 23 trên cùng lọc toàn bộ app; đơn và việc mới tự gán khu vực đang chọn, dữ liệu chưa gán khu vực hiện ở mọi khu vực.
+- Khu vực: nút Tất cả / KV 27 / KV 23 trên cùng lọc toàn bộ app; đơn hàng tự xếp theo kho nhận hàng (1121 → KV 27, kho khác → KV 23, sửa danh sách ở AREA_27_WAREHOUSES trong Index.html); công việc tự gán khu vực đang chọn, dữ liệu chưa gán khu vực hiện ở mọi khu vực.
 - Giao diện tối, nhớ màn hình đang xem.
 
 ## Cài đặt

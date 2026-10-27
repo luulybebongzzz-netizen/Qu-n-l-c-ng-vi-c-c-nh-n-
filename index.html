@@ -307,7 +307,7 @@ tbody tr:hover{background:var(--surface-2)}
         <div class="field"><label>Người gửi đơn</label><input id="pasteSender" list="dlSenders" placeholder="Ví dụ: Ngọc Vĩ"></div>
         <div class="field"><label>Kho lấy hàng</label><input id="pasteWarehouse" list="dlWarehouses" placeholder="Ví dụ: 1111"></div>
         <div class="field"><label>Kho nhận hàng</label><input id="pasteToWarehouse" list="dlToWarehouses" placeholder="Ví dụ: Cần Thơ"></div>
-        <div class="field"><label>Khu vực</label><select id="pasteArea" class="area-select"></select></div>
+        <div class="field"><label>Khu vực (khi chưa có kho nhận)</label><select id="pasteArea" class="area-select"></select></div>
       </div>
       <button type="button" class="btn btn-ghost" onclick="previewParsed()">Tách đơn ↓</button>
       <div id="pastePreview"></div>
@@ -331,11 +331,11 @@ tbody tr:hover{background:var(--surface-2)}
       <input type="hidden" name="id"><input type="hidden" name="createdAt">
       <div class="field full"><label>Khách hàng *</label><input name="customer" list="dlCustomers" required onchange="fillSap(this.form)"></div>
       <div class="field"><label>Mã hàng *</label><input name="code" list="dlCodes" required onchange="fillSap(this.form)"></div>
-      <div class="field"><label>Khu vực</label><select name="area" class="area-select"></select></div>
+      <div class="field"><label>Khu vực (tự theo kho nhận: 1121 → KV 27, khác → KV 23)</label><select name="area" class="area-select"></select></div>
       <div class="field"><label>Mã KH SAP</label><input name="customerSap" placeholder="Mã khách trên SAP"></div>
       <div class="field"><label>Mã hàng SAP</label><input name="codeSap" placeholder="Mã vật tư (Material)"></div>
       <div class="field"><label>Kho lấy hàng</label><input name="warehouse" list="dlWarehouses"></div>
-      <div class="field"><label>Kho nhận hàng</label><input name="toWarehouse" list="dlToWarehouses"></div>
+      <div class="field"><label>Kho nhận hàng</label><input name="toWarehouse" list="dlToWarehouses" onchange="this.form.area.value = areaOf({ toWarehouse: this.value, area: this.form.area.value })"></div>
       <div class="field"><label>SL đặt *</label><input name="qty" type="number" step="any" required></div>
       <div class="field"><label>Đơn vị tính</label><input name="unit" placeholder="m2, viên, thùng..."></div>
       <div class="field"><label>Ngày khách nhận</label><input name="pickupDate" type="date"></div>
@@ -538,6 +538,14 @@ function addAction() {
 
 /* ---------- Khu vực ---------- */
 const AREAS = ['27', '23'];
+// Đơn hàng tự xếp khu vực theo kho nhận hàng: kho trong danh sách → KV 27, kho khác → KV 23.
+// Đơn chưa có kho nhận thì dùng ô Khu vực chọn tay.
+const AREA_27_WAREHOUSES = ['1121'];
+const areaOf = (x) => {
+  const wh = String(x.toWarehouse || '').trim();
+  if (wh) return AREA_27_WAREHOUSES.includes(wh) ? '27' : '23';
+  return x.area || '';
+};
 
 function buildAreaSwitch() {
   $('areaSwitch').innerHTML = [['', 'Tất cả'], ...AREAS.map(a => [a, 'KV ' + a])]
@@ -556,8 +564,8 @@ function setArea(a) {
 }
 
 // Dữ liệu chưa gán khu vực thì hiện ở mọi khu vực
-const inArea = (x) => !S.area || !x.area || x.area === S.area;
-const areaTag = (x) => x.area ? `<span class="area-tag">KV ${esc(x.area)}</span>` : '';
+const inArea = (x) => !S.area || !areaOf(x) || areaOf(x) === S.area;
+const areaTag = (x) => areaOf(x) ? `<span class="area-tag">KV ${esc(areaOf(x))}</span>` : '';
 
 function toggleTheme() {
   const dark = document.documentElement.dataset.theme !== 'dark';
@@ -1046,6 +1054,7 @@ async function saveParsed() {
     const o = { sender, createdAt: today, picked: 0, status: 'Chưa lấy', area: $('pasteArea').value };
     el.querySelectorAll('[data-k]').forEach(inp => o[inp.dataset.k] = inp.value.trim());
     o.qty = Number(o.qty) || 0;
+    o.area = areaOf(o);
     return o;
   });
   if (!rows.length) return toast('Không có dòng nào để lưu', true);
@@ -1077,6 +1086,7 @@ function openOrder(id) {
   try { last = { sender: localStorage.getItem('lastSender') || '', warehouse: localStorage.getItem('lastWarehouse') || '', toWarehouse: localStorage.getItem('lastToWarehouse') || '' }; } catch (e) {}
   const data = o || { ...last, area: S.area, qty: '', picked: 0, status: 'Chưa lấy', createdAt: todayStr() };
   ['id', 'customer', 'code', 'qty', 'unit', 'warehouse', 'toWarehouse', 'customerSap', 'codeSap', 'area', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
+  f.elements.area.value = areaOf(data);
   f.elements.cancelled.checked = data.status === 'Huỷ';
   $('orderMeta').textContent = o ? `Mã: ${o.id} · Nhận đơn ${fmtDate(o.createdAt)}${o.updatedAt ? ' · Cập nhật ' + o.updatedAt.replace('T', ' ') : ''}` : '';
   $('orderOverlay').classList.add('show');
@@ -1088,6 +1098,7 @@ async function submitOrder(e) {
   const f = $('orderForm');
   const o = Object.fromEntries(new FormData(f).entries());
   o.qty = Number(o.qty) || 0; o.picked = Number(o.picked) || 0;
+  o.area = areaOf(o);
   o.status = f.elements.cancelled.checked ? 'Huỷ' : '';
   o.status = calcOrderStatus(o);
   delete o.cancelled;
