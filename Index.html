@@ -503,7 +503,7 @@ const Demo = {
 };
 
 /* ---------- Trạng thái ---------- */
-const S = { tasks: [], orders: [], customers: [], items: [], area: '', selecting: false, sel: new Set(), members: [], statuses: [], priorities: [], view: 'dashboard' };
+const S = { tasks: [], orders: [], customers: [], items: [], area: '', selecting: false, sel: new Set(), ocrPick: '', members: [], statuses: [], priorities: [], view: 'dashboard' };
 const VIEWS = [
   { id: 'dashboard', label: 'Tổng quan', icon: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>' },
   { id: 'list', label: 'Danh sách', icon: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>' },
@@ -1159,6 +1159,7 @@ function renderOrders() {
 /* Dán tin Zalo */
 function openPaste() {
   $('pasteText').value = '';
+  S.ocrPick = '';
   $('pastePreview').innerHTML = '';
   $('btnSaveParsed').style.display = 'none';
   $('pasteArea').value = S.area;
@@ -1293,8 +1294,8 @@ function parseSapOrder(text) {
     || S.orders.find(o => o.customerSap === customerSap);
   const rawName = (sold[2] || '').split('/')[0].replace(/[|\[\]]/g, '').trim();
   const shortName = rawName.replace(/^(c[oô]ng ty|cty)\s+/i, '').replace(/^((tnhh|cp|cổ phần|mtv|xd|tm|dv|sx|tmdv|vlxd|xnk|hkd|dntn)\s+)+/i, '').trim();
-  // Ship-To dạng 80xxxx là kho/DC xxxx (801121 → 1121)
-  const toWh = ship[1] ? (/^80\d{4}$/.test(ship[1]) ? ship[1].slice(2) : ship[1]) : '';
+  // Ship-To 6 số dạng 80xxxx là kho/DC xxxx (801121 → 1121; chữ đọc từ ảnh đôi khi ra 201121)
+  const toWh = ship[1] ? (/^\d{2}\d{4}$/.test(ship[1]) ? ship[1].slice(2) : ship[1]) : '';
   const out = [];
   lines.forEach(l => {
     if (/Sold.?To|Ship.?To|Net Value|Total|Weight|Volume|Pricing|nội địa|Overview/i.test(l)) return;
@@ -1319,8 +1320,66 @@ function parseSapOrder(text) {
   };
 }
 
+/* Ảnh bảng tồn kho SAP (Plant · Name · Mat. · Material Description · Stor. Loc · Un · Batch · Tồn · Khả dụng):
+ * dòng được chọn là kho lấy hàng, ghi chú "94th NHẬT MINH" là số lượng + khách */
+const isStockList = (t) => /Batch/i.test(t) && t.split('\n').filter(l => /^\W*\d{4}\s.*\d{8}.*\d{10}/.test(l)).length >= 1;
+const noMark = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase().replace(/\s+/g, ' ').trim();
+function matchCustomer(name) {
+  const n = noMark(name);
+  if (!n) return '';
+  const names = [...new Set([...S.customers.map(c => c.name), ...S.orders.map(o => o.customer)].filter(Boolean))];
+  return names.find(x => noMark(x) === n) || names.find(x => noMark(x).startsWith(n)) || names.find(x => noMark(x).includes(n))
+    || name.toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
+}
+function parseStockRow(l) {
+  const m = l.replace(/[|\[\]]/g, ' ').match(/^\W*(\d{4})\s+(.*?)\s*(\d{8})(?!\d)(.*)$/);
+  if (!m) return null;
+  const rest = m[4];
+  const bm = rest.match(/\b(\d{10})\b/);
+  if (!bm) return null;
+  const cm = rest.match(/\b(\d{4}[A-Z]{2,}[A-Z0-9-]*\d)/i);
+  const um = rest.slice(0, bm.index).match(/\b(TH|VIE|V|M2|BAG|BAO|CAI|BO)\b/i);
+  const nums = rest.slice(bm.index + bm[0].length).match(/\d[\d.,]*/g) || [];
+  return { plant: m[1], plantName: m[2].trim(), codeSap: m[3], code: cm ? cm[1].toUpperCase() : m[3], unit: um ? um[1].toLowerCase() : 'th', lot: bm[1], stock: nums[0] || '', avail: nums[1] || '' };
+}
+function parseStockList(text) {
+  const rows = text.split('\n').map(parseStockRow).filter(Boolean);
+  const picked = (S.ocrPick && parseStockRow(S.ocrPick)) || rows[rows.length - 1];
+  const all = text.replace(/\n/g, ' ');
+  const note = (all.match(/Ghi chú:\s*([^\n]*)/) || [])[1] || all;
+  const am = note.match(/(\d+(?:[.,]\d+)?)\s*(thùng|th|viên|vie|v|m2|m)\b\.?\s*([\p{L}][\p{L} ]{1,40}?)(?=\s*[:.,;]|\s+\d|$)/iu)
+    || all.match(/(\d+(?:[.,]\d+)?)\s*(thùng|th|viên|vie|v|m2|m)\b\.?\s*(\p{Lu}[\p{Lu} ]{1,40}?)(?=\s*[:.,;]|\s+\d|$)/u);
+  if (!picked) return null;
+  // Mã hàng: ưu tiên danh mục theo mã SAP, rồi mã đọc được nhiều nhất trong các dòng cùng mã SAP (dòng tô màu hay đọc sai)
+  const known = S.items.find(i => i.codeSap && i.codeSap === picked.codeSap);
+  const votes = {};
+  rows.filter(r => r.codeSap === picked.codeSap).forEach(r => votes[r.code] = (votes[r.code] || 0) + 1);
+  const code = known ? known.code : Object.keys(votes).sort((a, b) => votes[b] - votes[a])[0] || picked.code;
+  // Tên khách: lấy các chữ cùng kiểu viết (in hoa) liền nhau, bỏ phần rác phía sau
+  let cust = '';
+  if (am) {
+    const words = am[3].trim().split(/\s+/), caps = (w) => w === w.toUpperCase();
+    const keep = [];
+    for (const w of words) { if (!/^\p{L}+$/u.test(w) || (keep.length && caps(w) !== caps(keep[0]))) break; keep.push(w); }
+    for (let n = keep.length; n > 0 && !cust; n--) {
+      const m = matchCustomer(keep.slice(0, n).join(' '));
+      if (S.customers.some(c => c.name === m) || S.orders.some(o => o.customer === m)) cust = m;
+    }
+    cust = cust || matchCustomer(keep.join(' '));
+  }
+  return {
+    customer: cust, warehouse: picked.plant, toWarehouse: '', pickupDate: '',
+    note: picked.avail ? `Kho ${picked.plant} khả dụng ${picked.avail}` : '',
+    lines: [{ code, codeSap: picked.codeSap, qty: am ? vnNum(am[1]) : '', unit: am ? am[2].toLowerCase() : picked.unit, lot: picked.lot }]
+  };
+}
+
 function previewParsed() {
   const text = $('pasteText').value;
+  if (!isSapOrder(text) && isStockList(text)) {
+    const g = parseStockList(text);
+    if (g) return showGroups([g], `Đọc được bảng tồn kho: lấy ở kho ${g.warehouse}${S.ocrPick ? ' (dòng chị chọn)' : ''}. Chị kiểm tra, thêm kho nhận rồi lưu:`);
+  }
   if (isSapOrder(text)) {
     const g = parseSapOrder(text);
     if (!g.lines.length) g.lines.push({ code: '', qty: '', unit: '' });
@@ -1754,16 +1813,75 @@ function loadOcr() {
   }));
 }
 
+/* Chuẩn bị ảnh trước khi đọc chữ:
+ * - chữ / khung màu đỏ (ghi chú tay trên ảnh) tách ra ảnh riêng để đọc, ảnh chính xoá màu đỏ đi cho bảng đọc rõ;
+ * - tìm dải dòng đang được chọn (nền vàng cam kiểu SAP) để biết dòng chị chọn. */
+async function prepImage(file) {
+  const bmp = await createImageBitmap(file);
+  const w = bmp.width, h = bmp.height;
+  const mk = () => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+  const main = mk(), red = mk();
+  const ctx = main.getContext('2d'); ctx.drawImage(bmp, 0, 0);
+  const img = ctx.getImageData(0, 0, w, h), d = img.data;
+  const rctx = red.getContext('2d'), rimg = rctx.createImageData(w, h), rd = rimg.data;
+  const hlRows = new Array(h).fill(0);
+  let redCount = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = (y * w + x) * 4, r = d[i], g = d[i + 1], b = d[i + 2];
+    const isRed = r > 150 && g < 110 && b < 110 && r - g > 80;
+    if (r > 235 && g > 185 && g < 235 && b < 190 && r - b > 60) hlRows[y]++;
+    const v = isRed ? 255 : Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+    d[i] = d[i + 1] = d[i + 2] = v;
+    rd[i] = rd[i + 1] = rd[i + 2] = isRed ? 0 : 255; rd[i + 3] = 255;
+    if (isRed) redCount++;
+  }
+  ctx.putImageData(img, 0, 0);
+  rctx.putImageData(rimg, 0, 0);
+  // Dải dòng chọn dài nhất (mỗi hàng điểm ảnh có trên 30% nền vàng cam)
+  let band = null, start = -1;
+  for (let y = 0; y <= h; y++) {
+    const on = y < h && hlRows[y] > w * 0.3;
+    if (on && start < 0) start = y;
+    if (!on && start >= 0) { if (y - start > 8 && (!band || y - start > band[1] - band[0])) band = [start, y]; start = -1; }
+  }
+  return { main, red: redCount > 300 ? red : null, band };
+}
+
 async function runOcr(file) {
   const st = $('ocrStatus');
   st.textContent = 'Đang tải bộ đọc chữ (lần đầu mất vài giây)...';
   try {
     const T = await loadOcr();
-    const { data } = await T.recognize(file, 'vie+eng', {
-      logger: m => { if (m.status === 'recognizing text') st.textContent = `Đang đọc chữ trong ảnh... ${Math.round(m.progress * 100)}%`; }
-    });
+    const logger = m => { if (m.status === 'recognizing text') st.textContent = `Đang đọc chữ trong ảnh... ${Math.round(m.progress * 100)}%`; };
+    let { data } = await T.recognize(file, 'vie+eng', { logger });
+    let text = data.text.trim(), prep = null;
+    S.ocrPick = '';
+    if (isStockList(text)) {
+      // Bảng tồn kho: đọc lại trên ảnh đã xoá chữ đỏ để dòng được chọn đọc rõ hơn
+      try { prep = await prepImage(file); } catch (e) { prep = null; }
+      if (prep && (prep.red || prep.band)) {
+        st.textContent = 'Đang đọc lại bảng tồn kho...';
+        ({ data } = await T.recognize(prep.main, 'vie+eng', { logger }));
+        text = data.text.trim();
+      }
+    }
+    if (prep) {
+      // Dòng được chọn trong bảng tồn kho
+      if (prep.band) {
+        const mid = (prep.band[0] + prep.band[1]) / 2;
+        const ln = (data.lines || []).find(l => l.bbox.y0 <= mid && l.bbox.y1 >= mid);
+        if (ln) S.ocrPick = ln.text.trim();
+      }
+      // Chữ đỏ ghi tay trên ảnh: "94th NHẬT MINH"
+      if (prep.red) {
+        st.textContent = 'Đang đọc chữ ghi chú màu đỏ...';
+        const r = await T.recognize(prep.red, 'vie+eng');
+        const note = r.data.text.replace(/\s+/g, ' ').trim();
+        if (note) text += '\nGhi chú: ' + note;
+      }
+    }
     const ta = $('pasteText');
-    ta.value = (ta.value.trim() ? ta.value.trim() + '\n\n' : '') + data.text.trim();
+    ta.value = (ta.value.trim() ? ta.value.trim() + '\n\n' : '') + text;
     st.textContent = '✓ Đã đọc xong. Chị kiểm tra lại chữ và bảng bên dưới.';
     previewParsed();
   } catch (e) { st.textContent = 'Lỗi đọc ảnh: ' + (e.message || e); }
