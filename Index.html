@@ -1322,7 +1322,10 @@ function parseSapOrder(text) {
 
 /* Ảnh bảng tồn kho SAP (Plant · Name · Mat. · Material Description · Stor. Loc · Un · Batch · Tồn · Khả dụng):
  * dòng được chọn là kho lấy hàng, ghi chú "94th NHẬT MINH" là số lượng + khách */
-const isStockList = (t) => /Batch/i.test(t) && t.split('\n').filter(l => /^\W*\d{4}\s.*\d{8}.*\d{10}/.test(l)).length >= 1;
+const isStockList = (t) => {
+  const n = t.split('\n').filter(l => /^\W*\d{4}\s.*\d{8}.*\d{10}/.test(l)).length;
+  return n >= 2 || (n >= 1 && /Batch|Plant|Material Desc/i.test(t));
+};
 const noMark = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase().replace(/\s+/g, ' ').trim();
 function matchCustomer(name) {
   const n = noMark(name);
