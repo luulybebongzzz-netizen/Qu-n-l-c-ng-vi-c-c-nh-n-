@@ -1303,7 +1303,7 @@ function parseSapOrder(text) {
     const m = l.replace(/[|\[\]{}]/g, ' ').match(/(?:^|\D)(\d{1,4})?\s*(\d{8})(?!\d)\s*([\d.,]+)\s*([A-Za-z²]{1,4})\b(.*)$/);
     if (!m) return;
     const rest = m[5];
-    const cm = rest.match(/\b(\d{4}[A-Z]{2,}[A-Z0-9-]*\d)/i);
+    const cm = rest.match(/\b(\d{4}[A-Z]{2,}[A-Z0-9]*\d(?:-[A-Z0-9+]+)*)/i);
     const after = cm ? rest.slice(cm.index + cm[0].length) : rest;
     out.push({
       code: cm ? cm[1].toUpperCase() : m[2], codeSap: m[2], qty: vnNum(m[3]), unit: m[4].toLowerCase(),
@@ -1328,10 +1328,11 @@ const isStockList = (t) => {
 };
 const noMark = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase().replace(/\s+/g, ' ').trim();
 function matchCustomer(name) {
-  const n = noMark(name);
+  const n = noMark(name).replace(/ /g, '');
   if (!n) return '';
   const names = [...new Set([...S.customers.map(c => c.name), ...S.orders.map(o => o.customer)].filter(Boolean))];
-  return names.find(x => noMark(x) === n) || names.find(x => noMark(x).startsWith(n)) || names.find(x => noMark(x).includes(n))
+  const k = (x) => noMark(x).replace(/ /g, '');
+  return names.find(x => k(x) === n) || names.find(x => k(x).startsWith(n)) || names.find(x => k(x).includes(n))
     || name.toLowerCase().replace(/(^|\s)\p{L}/gu, c => c.toUpperCase());
 }
 function parseStockRow(l) {
@@ -1340,7 +1341,7 @@ function parseStockRow(l) {
   const rest = m[4];
   const bm = rest.match(/\b(\d{10})\b/);
   if (!bm) return null;
-  const cm = rest.match(/\b(\d{4}[A-Z]{2,}[A-Z0-9-]*\d)/i);
+  const cm = rest.match(/\b(\d{4}[A-Z]{2,}[A-Z0-9]*\d(?:-[A-Z0-9+]+)*)/i);
   const um = rest.slice(0, bm.index).match(/\b(TH|VIE|V|M2|BAG|BAO|CAI|BO)\b/i);
   const nums = rest.slice(bm.index + bm[0].length).match(/\d[\d.,]*/g) || [];
   return { plant: m[1], plantName: m[2].trim(), codeSap: m[3], code: cm ? cm[1].toUpperCase() : m[3], unit: um ? um[1].toLowerCase() : 'th', lot: bm[1], stock: nums[0] || '', avail: nums[1] || '' };
@@ -1350,7 +1351,22 @@ function parseStockList(text) {
   const picked = (S.ocrPick && parseStockRow(S.ocrPick)) || rows[rows.length - 1];
   const all = text.replace(/\n/g, ' ');
   const note = (all.match(/Ghi chú:\s*([^\n]*)/) || [])[1] || all;
-  const am = note.match(/(\d+(?:[.,]\d+)?)\s*(thùng|th|viên|vie|v|m2|m)\b\.?\s*([\p{L}][\p{L} ]{1,40}?)(?=\s*[:.,;]|\s+\d|$)/iu)
+  const UNIT_A = '(thùng|th|viên|vie|v|m2|m)';
+  // "NHẬT MINH : 96TH" (tên trước) hoặc "94th NHẬT MINH" (số lượng trước)
+  const nf = note.match(new RegExp(`([\\p{L}][\\p{L} ]{1,40}?)\\s*[:\\-–=]\\s*(\\d+(?:[.,]\\d+)?)\\s*${UNIT_A}\\b`, 'iu'));
+  let nfName = '';
+  if (nf) {
+    // Lấy các chữ in hoa liền nhau ngay trước dấu ":"; ưu tiên đoạn khớp danh mục khách, không thì bỏ mẩu rác 1-2 chữ cái ở đầu
+    const ws = nf[1].trim().split(/\s+/), caps = (w) => w === w.toUpperCase();
+    let i = ws.length; while (i > 0 && /^\p{L}+$/u.test(ws[i - 1]) && caps(ws[i - 1]) === caps(ws[ws.length - 1])) i--;
+    const run = ws.slice(i);
+    for (let j = 0; j < run.length && !nfName; j++) {
+      const m = matchCustomer(run.slice(j).join(' '));
+      if (S.customers.some(c => c.name === m) || S.orders.some(o => o.customer === m)) nfName = run.slice(j).join(' ');
+    }
+    if (!nfName) { while (run.length > 1 && run[0].length <= 2) run.shift(); nfName = run.join(' '); }
+  }
+  const am = nf ? [nf[0], nf[2], nf[3], nfName] : note.match(/(\d+(?:[.,]\d+)?)\s*(thùng|th|viên|vie|v|m2|m)\b\.?\s*([\p{L}][\p{L} ]{1,40}?)(?=\s*[:.,;]|\s+\d|$)/iu)
     || all.match(/(\d+(?:[.,]\d+)?)\s*(thùng|th|viên|vie|v|m2|m)\b\.?\s*(\p{Lu}[\p{Lu} ]{1,40}?)(?=\s*[:.,;]|\s+\d|$)/u);
   if (!picked) return null;
   // Mã hàng: ưu tiên danh mục theo mã SAP, rồi mã đọc được nhiều nhất trong các dòng cùng mã SAP (dòng tô màu hay đọc sai)
@@ -1832,11 +1848,21 @@ async function prepImage(file) {
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = (y * w + x) * 4, r = d[i], g = d[i + 1], b = d[i + 2];
     const isRed = r > 150 && g < 110 && b < 110 && r - g > 80;
+    const redish = isRed || (r > 150 && r - g > 60 && r - b > 50); // cả viền chữ đỏ bị nhoè
     if (r > 235 && g > 185 && g < 235 && b < 190 && r - b > 60) hlRows[y]++;
-    const v = isRed ? 255 : Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+    const v = redish ? 255 : Math.round(0.299 * r + 0.587 * g + 0.114 * b);
     d[i] = d[i + 1] = d[i + 2] = v;
     rd[i] = rd[i + 1] = rd[i + 2] = isRed ? 0 : 255; rd[i + 3] = 255;
     if (isRed) redCount++;
+  }
+  // Bỏ các đường kẻ ngang dài màu đỏ (khung khoanh dòng) khỏi ảnh chữ đỏ
+  for (let y = 0; y < h; y++) {
+    let run = 0;
+    for (let x = 0; x <= w; x++) {
+      const on = x < w && rd[(y * w + x) * 4] === 0;
+      if (on) run++;
+      else { if (run > w * 0.12) for (let k = x - run; k < x; k++) { const j = (y * w + k) * 4; rd[j] = rd[j + 1] = rd[j + 2] = 255; } run = 0; }
+    }
   }
   ctx.putImageData(img, 0, 0);
   rctx.putImageData(rimg, 0, 0);
@@ -1847,7 +1873,15 @@ async function prepImage(file) {
     if (on && start < 0) start = y;
     if (!on && start >= 0) { if (y - start > 8 && (!band || y - start > band[1] - band[0])) band = [start, y]; start = -1; }
   }
-  return { main, red: redCount > 300 ? red : null, band };
+  // Cắt riêng dải dòng được chọn, phóng to gấp đôi để đọc rõ
+  let row = null;
+  if (band) {
+    const y0 = Math.max(0, band[0] - 3), hh = Math.min(h, band[1] + 3) - y0;
+    row = document.createElement('canvas'); row.width = w * 2; row.height = hh * 2 + 40;
+    const c = row.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, row.width, row.height);
+    c.imageSmoothingQuality = 'high'; c.drawImage(main, 0, y0, w, hh, 0, 20, w * 2, hh * 2);
+  }
+  return { main, red: redCount > 300 ? red : null, band, row };
 }
 
 async function runOcr(file) {
@@ -1870,7 +1904,12 @@ async function runOcr(file) {
     }
     if (prep) {
       // Dòng được chọn trong bảng tồn kho
-      if (prep.band) {
+      if (prep.row) {
+        st.textContent = 'Đang đọc dòng chị chọn...';
+        const r = await T.recognize(prep.row, 'vie+eng');
+        S.ocrPick = r.data.text.replace(/\s+/g, ' ').trim();
+      }
+      if (prep.band && !parseStockRow(S.ocrPick)) {
         const mid = (prep.band[0] + prep.band[1]) / 2;
         const ln = (data.lines || []).find(l => l.bbox.y0 <= mid && l.bbox.y1 >= mid);
         if (ln) S.ocrPick = ln.text.trim();
@@ -1957,7 +1996,7 @@ function parseTransferPdf(lines) {
     const qty = vnNum(c[c.length - 1]), unit = c[c.length - 2].toLowerCase();
     const lot = c.length >= 6 ? c[c.length - 3] : '';
     const name = c.slice(2, c.length >= 6 ? -3 : -2).join(' ');
-    const code = (name.split(/[,\s]+/).find(t => /^\d{4}[A-Z]{2,}[A-Z0-9-]*\d$/i.test(t)) || c[1]).toUpperCase();
+    const code = (name.split(/[,\s]+/).find(t => /^\d{4}[A-Z]{2,}[A-Z0-9]*\d(?:-[A-Z0-9+]+)*$/i.test(t)) || c[1]).toUpperCase();
     const k = [c[1], lot].join('|');
     if (!map.has(k)) map.set(k, { code, codeSap: c[1], lot, qty: 0, unit: '' });
     const r = map.get(k);
