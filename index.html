@@ -1449,8 +1449,8 @@ async function removeOrder() {
 const unitKind = (u) => {
   u = String(u || '').trim().toLowerCase();
   if (/^(m2|m²|m)$/.test(u)) return 'm2'; // "20m" trong tin Zalo là 20 m²
-  if (/^(thùng|th)$/.test(u)) return 'box';
-  if (/^(viên|v)$/.test(u)) return 'pcs';
+  if (/^(thùng|th|thu|tg|ctn|carton)$/.test(u)) return 'box';
+  if (/^(viên|v|vie|viê|pc|pcs)$/.test(u)) return 'pcs';
   return '';
 };
 function convOf(o) {
@@ -1529,13 +1529,14 @@ const EX_MERGES = [0, 1, 2, 3, 6, 7].map(c => ({ s: { r: 0, c }, e: { r: 1, c } 
 const exQty = (o) => toBoxes(o.qty, o.unit, convOf(o));
 const custLabel = (o) => o.customerSap ? `${o.customer} - ${o.customerSap}` : o.customer;
 
-/* Dòng EX; merge = true thì cộng các dòng cùng nơi lấy + nơi nhận + mã hàng + lô thành một */
+/* Dòng EX: cùng khách + nơi lấy + nơi nhận + mã hàng + lô gom chung một dòng (thùng và viên cộng lại);
+ * merge = true (gộp đơn lớn) thì gom cả các khách khác nhau */
 function exRows(lines, merge) {
   const out = [], idx = {};
   lines.forEach(o => {
     const cv = convOf(o), r = exQty(o);
-    const k = [o.warehouse, o.toWarehouse, o.codeSap || o.code, o.lot].join('|').toLowerCase();
-    if (merge && r && idx[k] !== undefined) {
+    const k = [o.warehouse, o.toWarehouse, o.codeSap || o.code, o.lot, merge ? '' : custLabel(o)].join('|').toLowerCase();
+    if (r && idx[k] !== undefined) {
       const x = out[idx[k]];
       if (!x.customers.includes(custLabel(o))) x.customers.push(custLabel(o));
       if (cv.perBox) { const pcs = x.th * cv.perBox + x.v + r.th * cv.perBox + r.v; x.th = Math.floor(pcs / cv.perBox); x.v = pcs % cv.perBox; }
@@ -1546,7 +1547,7 @@ function exRows(lines, merge) {
     // Chưa có quy đổi: ghi nguyên số lượng + ĐVT vào cột TH (tô vàng)
     const x = { warehouse: o.warehouse, toWarehouse: o.toWarehouse, codeSap: o.codeSap, code: o.code, th: r ? r.th : `${fmtQty(o.qty)} ${o.unit || ''}`.trim(), v: r ? r.v : '',
       lot: o.lot || '', customers: [custLabel(o)], src: [o], noConv: !r };
-    if (r && merge) idx[k] = out.length;
+    if (r) idx[k] = out.length;
     out.push(x);
   });
   return out;
