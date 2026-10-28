@@ -7,6 +7,8 @@ const SHEET_TASKS = 'CongViec';
 const SHEET_MEMBERS = 'ThanhVien';
 const SHEET_SETTINGS = 'CaiDat';
 const SHEET_ORDERS = 'DonHang';
+const SHEET_CUSTOMERS = 'KhachHang';
+const SHEET_ITEMS = 'MaHang';
 
 const TASK_HEADERS = [
   'ID', 'Tiêu đề', 'Mô tả', 'Trạng thái', 'Ưu tiên', 'Người phụ trách',
@@ -16,8 +18,11 @@ const TASK_HEADERS = [
 const ORDER_HEADERS = [
   'ID', 'Ngày nhận đơn', 'Khách hàng', 'Mã hàng', 'SL đặt', 'ĐVT', 'Kho',
   'Ngày nhận dự kiến', 'Người gửi', 'Ghi chú', 'SL đã lấy', 'Trạng thái', 'Cập nhật lúc',
-  'Kho nhận hàng', 'Mã KH SAP', 'Mã hàng SAP', 'Khu vực'
+  'Kho nhận hàng', 'Mã KH SAP', 'Mã hàng SAP', 'Khu vực', 'Mã đơn'
 ];
+// Danh mục: app tự thêm / cập nhật khi lưu đơn, chị cũng có thể sửa tay trong sheet
+const CUSTOMER_HEADERS = ['Khách hàng', 'Mã KH SAP', 'Kho nhận mặc định', 'Cập nhật lúc'];
+const ITEM_HEADERS = ['Mã hàng', 'Mã hàng SAP', 'ĐVT', 'Viên/thùng', 'm²/thùng', 'Cập nhật lúc'];
 const MEMBER_HEADERS = ['Tên', 'Email', 'Vai trò'];
 const SETTING_HEADERS = ['Loại', 'Giá trị', 'Màu'];
 
@@ -46,7 +51,7 @@ function doGet() {
  * API JSON cho giao diện chạy ngoài Apps Script (GitHub Pages).
  * Gửi POST với body dạng text: {"fn": "saveTask", "args": [...]}
  */
-const API_FUNCTIONS = { getInitialData, getTasks, saveTask, updateStatus, deleteTask, getOrders, saveOrders, deleteOrder };
+const API_FUNCTIONS = { getInitialData, getTasks, saveTask, updateStatus, deleteTask, getOrders, saveOrders, deleteOrder, getCatalog };
 
 function doPost(e) {
   let out;
@@ -80,6 +85,8 @@ function setup_() {
   const ss = SpreadsheetApp.getActive();
   ensureSheet_(ss, SHEET_TASKS, TASK_HEADERS);
   ensureSheet_(ss, SHEET_ORDERS, ORDER_HEADERS);
+  ensureSheet_(ss, SHEET_CUSTOMERS, CUSTOMER_HEADERS);
+  ensureSheet_(ss, SHEET_ITEMS, ITEM_HEADERS);
   const members = ensureSheet_(ss, SHEET_MEMBERS, MEMBER_HEADERS);
   const settings = ensureSheet_(ss, SHEET_SETTINGS, SETTING_HEADERS);
   if (settings.getLastRow() === 1) {
@@ -114,6 +121,7 @@ function getInitialData() {
   return {
     tasks: getTasks(),
     orders: getOrders(),
+    ...getCatalog(),
     members: readRows_(ss.getSheetByName(SHEET_MEMBERS))
       .filter(r => r[0]).map(r => ({ name: String(r[0]), email: String(r[1]), role: String(r[2]) })),
     statuses: settings.filter(r => r[0] === 'TrangThai').map(r => ({ name: r[1], color: r[2] })),
@@ -206,7 +214,63 @@ function saveOrders(orders) {
     if (toAppend.length) {
       sh.getRange(sh.getLastRow() + 1, 1, toAppend.length, ORDER_HEADERS.length).setValues(toAppend);
     }
+    upsertCatalog_(saved);
     return saved;
+  });
+}
+
+/* ---------- Danh mục khách hàng / mã hàng ---------- */
+
+function getCatalog() {
+  const ss = SpreadsheetApp.getActive();
+  return {
+    customers: readRows_(ss.getSheetByName(SHEET_CUSTOMERS)).filter(r => r[0]).map(r => ({
+      name: String(r[0]), customerSap: String(r[1] || ''), toWarehouse: String(r[2] || '')
+    })),
+    items: readRows_(ss.getSheetByName(SHEET_ITEMS)).filter(r => r[0]).map(r => ({
+      code: String(r[0]), codeSap: String(r[1] || ''), unit: String(r[2] || ''),
+      perBox: Number(r[3]) || 0, m2PerBox: Number(r[4]) || 0
+    }))
+  };
+}
+
+/** Ghi nhớ mã SAP, kho nhận, ĐVT theo tên khách / mã hàng để lần sau tự điền */
+function upsertCatalog_(orders) {
+  const ss = SpreadsheetApp.getActive();
+  const now = new Date();
+  // [sheet, cột khoá, các cột cần nhớ: [vị trí cột, trường của đơn]]
+  const specs = [
+    [ss.getSheetByName(SHEET_CUSTOMERS), 'customer', [[1, 'customerSap'], [2, 'toWarehouse']], CUSTOMER_HEADERS.length],
+    [ss.getSheetByName(SHEET_ITEMS), 'code', [[1, 'codeSap'], [2, 'unit']], ITEM_HEADERS.length]
+  ];
+  specs.forEach(([sh, keyField, fields, width]) => {
+    const rows = readRows_(sh);
+    const index = {};
+    rows.forEach((r, i) => { if (r[0]) index[String(r[0]).trim().toLowerCase()] = i; });
+    const appended = [];
+    orders.forEach(o => {
+      const key = String(o[keyField] || '').trim();
+      if (!key) return;
+      const k = key.toLowerCase();
+      if (index[k] === undefined) {
+        const row = new Array(width).fill('');
+        row[0] = key;
+        fields.forEach(([c, f]) => row[c] = o[f] || '');
+        row[width - 1] = now;
+        index[k] = rows.length + appended.length;
+        appended.push(row);
+        return;
+      }
+      const i = index[k];
+      const row = i < rows.length ? rows[i] : appended[i - rows.length];
+      let changed = false;
+      fields.forEach(([c, f]) => { if (o[f] && String(row[c]) !== String(o[f])) { row[c] = o[f]; changed = true; } });
+      if (changed && i < rows.length) {
+        row[width - 1] = now;
+        sh.getRange(i + 2, 1, 1, width).setValues([Array.from({ length: width }, (_, j) => row[j] === undefined ? '' : row[j])]);
+      }
+    });
+    if (appended.length) sh.getRange(sh.getLastRow() + 1, 1, appended.length, width).setValues(appended);
   });
 }
 
@@ -244,7 +308,8 @@ function rowToOrder_(r) {
     toWarehouse: String(r[13] || ''),
     customerSap: String(r[14] || ''),
     codeSap: String(r[15] || ''),
-    area: String(r[16] || '')
+    area: String(r[16] || ''),
+    orderNo: String(r[17] || '')
   };
 }
 
@@ -266,7 +331,8 @@ function orderToRow_(o) {
     o.toWarehouse || '',
     String(o.customerSap || '').trim(),
     String(o.codeSap || '').trim().toUpperCase(),
-    o.area || ''
+    o.area || '',
+    o.orderNo || ''
   ];
 }
 

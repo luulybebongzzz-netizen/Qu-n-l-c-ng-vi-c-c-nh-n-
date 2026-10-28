@@ -149,7 +149,7 @@ tbody tr:hover{background:var(--surface-2)}
 .parsed-row input:focus{border-color:var(--primary)}
 .qty-unit{display:flex;gap:4px}
 .qty-unit input:last-child{width:56px;flex:none}
-.paste-opts{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+.paste-opts{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
 .paste-opts select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;outline:none;width:100%}
 .area-switch{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px}
 .area-switch button{padding:6px 12px;border-radius:8px;font-weight:600;color:var(--muted);white-space:nowrap}
@@ -157,6 +157,14 @@ tbody tr:hover{background:var(--surface-2)}
 .area-tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;background:var(--primary-soft);color:var(--primary);margin-right:6px;vertical-align:middle}
 #pasteText{width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;outline:none;resize:vertical}
 .modal.wide{max-width:980px}
+.ocr-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.order-lines{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.order-line{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 10px;background:var(--surface-2);border-radius:8px;cursor:pointer;border-left:3px solid var(--lc,#94a3b8)}
+.order-line:hover{filter:brightness(.97)}
+.order-line .qty{font-weight:600;text-align:right;white-space:nowrap}
+.order-line .sub{grid-column:1/-1;display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+.order-line .pick{color:var(--primary);font-weight:600;font-size:12px}
+.card-actions{display:flex;justify-content:space-between;gap:8px;margin-top:10px}
 .modal-body.block{display:block}
 .modal-body.block > * + *{margin-top:12px}
 
@@ -302,8 +310,14 @@ tbody tr:hover{background:var(--surface-2)}
       <button type="button" class="icon-btn" onclick="closePaste()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="modal-body block">
-      <textarea id="pasteText" placeholder="Dán tin nhắn Zalo vào đây, ví dụ:&#10;&#10;Quỳnh An&#10;2080banyan002 20m&#10;thứ 2 tuần sau khách nhận&#10;&#10;(Có thể dán nhiều tin, cách nhau một dòng trống)"></textarea>
+      <textarea id="pasteText" placeholder="Dán tin nhắn Zalo (chữ) hoặc ảnh chụp tin nhắn (Ctrl + V) vào đây, ví dụ:&#10;&#10;Quỳnh An&#10;2080banyan002 20m&#10;thứ 2 tuần sau khách nhận&#10;&#10;(Có thể dán nhiều tin, cách nhau một dòng trống)"></textarea>
+      <div class="ocr-bar">
+        <label class="btn btn-ghost" for="ocrFile">🖼️ Đọc chữ từ ảnh</label>
+        <input type="file" id="ocrFile" accept="image/*" hidden onchange="if (this.files[0]) runOcr(this.files[0]); this.value = ''">
+        <span class="t-sub" id="ocrStatus">Có thể dán thẳng ảnh chụp tin Zalo vào ô trên.</span>
+      </div>
       <div class="paste-opts">
+        <div class="field"><label>Ngày đặt</label><input id="pasteDate" type="date"></div>
         <div class="field"><label>Người gửi đơn</label><input id="pasteSender" list="dlSenders" placeholder="Ví dụ: Ngọc Vĩ"></div>
         <div class="field"><label>Kho lấy hàng</label><input id="pasteWarehouse" list="dlWarehouses" placeholder="Ví dụ: 1111"></div>
         <div class="field"><label>Kho nhận hàng</label><input id="pasteToWarehouse" list="dlToWarehouses" placeholder="Ví dụ: Cần Thơ"></div>
@@ -328,7 +342,7 @@ tbody tr:hover{background:var(--surface-2)}
       <button type="button" class="icon-btn" onclick="closeOrder()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="modal-body">
-      <input type="hidden" name="id"><input type="hidden" name="createdAt">
+      <input type="hidden" name="id"><input type="hidden" name="orderNo">
       <div class="field full"><label>Khách hàng *</label><input name="customer" list="dlCustomers" required onchange="fillSap(this.form)"></div>
       <div class="field"><label>Mã hàng *</label><input name="code" list="dlCodes" required onchange="fillSap(this.form)"></div>
       <div class="field"><label>Khu vực (tự theo kho nhận: 1121 → KV 27, khác → KV 23)</label><select name="area" class="area-select"></select></div>
@@ -338,6 +352,7 @@ tbody tr:hover{background:var(--surface-2)}
       <div class="field"><label>Kho nhận hàng</label><input name="toWarehouse" list="dlToWarehouses" onchange="this.form.area.value = areaOf({ toWarehouse: this.value, area: this.form.area.value })"></div>
       <div class="field"><label>SL đặt *</label><input name="qty" type="number" step="any" required></div>
       <div class="field"><label>Đơn vị tính</label><input name="unit" placeholder="m2, viên, thùng..."></div>
+      <div class="field"><label>Ngày đặt</label><input name="createdAt" type="date"></div>
       <div class="field"><label>Ngày khách nhận</label><input name="pickupDate" type="date"></div>
       <div class="field"><label>Người gửi đơn</label><input name="sender" list="dlSenders"></div>
       <div class="field"><label>SL đã lấy</label><input name="picked" type="number" step="any" min="0"></div>
@@ -399,6 +414,7 @@ const Demo = {
     return {
       tasks: this._load(),
       orders: this._orders(),
+      customers: [], items: [],
       members: [{name:'Yến'},{name:'Minh'},{name:'Lan'}],
       statuses: [{name:'Cần làm',color:'#64748b'},{name:'Đang làm',color:'#2563eb'},{name:'Chờ duyệt',color:'#d97706'},{name:'Hoàn thành',color:'#16a34a'}],
       priorities: [{name:'Thấp',color:'#94a3b8'},{name:'Trung bình',color:'#0ea5e9'},{name:'Cao',color:'#f97316'},{name:'Khẩn cấp',color:'#dc2626'}],
@@ -439,7 +455,7 @@ const Demo = {
 };
 
 /* ---------- Trạng thái ---------- */
-const S = { tasks: [], orders: [], area: '', members: [], statuses: [], priorities: [], view: 'dashboard' };
+const S = { tasks: [], orders: [], customers: [], items: [], area: '', members: [], statuses: [], priorities: [], view: 'dashboard' };
 const VIEWS = [
   { id: 'dashboard', label: 'Tổng quan', icon: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>' },
   { id: 'list', label: 'Danh sách', icon: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>' },
@@ -799,12 +815,13 @@ function calcOrderStatus(o) {
  * Mỗi đoạn (cách nhau dòng trống) là một tin: dòng chữ đầu là khách hàng,
  * dòng "mã số_lượng đơn_vị" là hàng, câu có ngày (thứ 2 tuần sau, mai, 05/11...) là ngày nhận. */
 const ITEM_RE = /^([A-Za-z0-9][\w.\/-]*\d[\w.\/-]*|[A-Za-z][\w.\/-]*[A-Za-z]\d*)\s*[:x×\-]?\s*(\d+(?:[.,]\d+)?)\s*(m2|m²|m3|md|m|viên|v|thùng|th|hộp|cái|bộ|kg|tấn|bao|cuộn|tấm|cây|kiện|pallet|lít|lon)?\.?$/i;
-const NOISE_RE = /^(\d{1,2}:\d{2}|hôm nay|hôm qua|đã xem|đã nhận)$/i;
+const NOISE_RE = /^(\d{1,2}:\d{2}.*|hôm nay|hôm qua|đã xem|đã nhận|đã gửi)$/i;
 
 function parseItemLine(line) {
   const out = [];
   for (const part of line.split(/[;,]\s*(?=[A-Za-z0-9])/)) {
     const m = part.trim().match(ITEM_RE);
+    if (m && /^\d{1,2}[\/.-]\d{1,2}([\/.-]\d{0,4})?$/.test(part.trim())) return null; // 05/11 là ngày, không phải mã hàng
     if (!m || !/\d/.test(m[1]) && !m[3]) return null;
     out.push({ code: m[1].toUpperCase(), qty: Number(m[2].replace(',', '.')), unit: (m[3] || '').toLowerCase().replace('m²', 'm2') });
   }
@@ -840,33 +857,62 @@ function parseVnDate(text, base) {
   return '';
 }
 
+/* Bỏ ký tự rác ở đầu dòng (ảnh đại diện khi đọc ảnh) và @nhắc tên ở cuối */
+const cleanLine = (l) => l.replace(/@[\p{L}\s]+$/u, '').replace(/^[^\p{L}\d]+/u, '').trim();
+
+/* Dòng tiêu đề người gửi trên Zalo, dạng "Ngọc Vĩ- Gạch Đồng Tâm" */
+function senderOf(line) {
+  const m = line.replace(/^\p{L}\s+(?=\p{Lu})/u, '').match(/^([\p{L}\s.]{2,30}?)\s*-\s*\S/u);
+  return m ? m[1].trim() : '';
+}
+
+/* Tách chữ (dán từ Zalo hoặc đọc từ ảnh) thành các dòng đơn hàng.
+ * Dòng chữ ngay trên dòng hàng đầu tiên là tên khách; câu có ngày là ngày nhận;
+ * các dòng khác là ghi chú của đơn phía trên. */
 function parseZalo(text, base = new Date()) {
-  const blocks = text.replace(/\r/g, '').split(/\n\s*\n/);
   const rows = [];
-  let customer = '';
-  for (const block of blocks) {
-    const lines = block.split('\n').map(l => l.replace(/@[\p{L}\s]+$/u, '').trim()).filter(l => l && !NOISE_RE.test(l));
-    if (!lines.length) continue;
-    const items = [], notes = [];
-    let blockCustomer = '', date = '';
-    for (const l of lines) {
-      const it = parseItemLine(l);
-      if (it) { items.push(...it); continue; }
-      const d = parseVnDate(l, base);
-      if (d && !date) { date = d; notes.push(l); continue; }
-      if (!blockCustomer && !items.length && l.length <= 60 && !/[?!]$/.test(l)) blockCustomer = l;
-      else notes.push(l);
-    }
-    if (blockCustomer) customer = blockCustomer;
-    if (!items.length) {
-      // Tin chỉ có ngày hoặc ghi chú: gắn vào các dòng vừa tách của cùng khách
-      const prev = rows.filter(r => r.customer === customer);
-      if (prev.length && !blockCustomer) prev.forEach(r => { if (date && !r.pickupDate) r.pickupDate = date; if (notes.length) r.note = [r.note, notes.join('. ')].filter(Boolean).join('. '); });
+  let group = [], buffer = [], sender = '', pending = null;
+  const addNote = (rs, n) => rs.forEach(r => r.note = [r.note, n].filter(Boolean).join('. '));
+  for (const raw of text.replace(/\r/g, '').split('\n')) {
+    const l = cleanLine(raw);
+    if (l.length < 2 || NOISE_RE.test(l)) continue;
+    const items = parseItemLine(l);
+    if (items) {
+      if (buffer.length || !group.length) {
+        // Bắt đầu đơn mới: dòng chữ cuối cùng phía trên là tên khách
+        const customer = buffer.pop() || (group[0] && group[0].customer) || '';
+        if (group.length) addNote(group, buffer.join('. '));
+        else buffer.forEach(b => { sender = sender || senderOf(b); });
+        buffer = [];
+        group = [];
+        group.customer = customer;
+      }
+      items.forEach(it => {
+        const r = { customer: group.customer, code: it.code, qty: it.qty, unit: it.unit, pickupDate: '', note: '' };
+        if (pending) { r.pickupDate = pending.date; r.note = pending.note; }
+        rows.push(r); group.push(r);
+      });
+      pending = null;
       continue;
     }
-    items.forEach(it => rows.push({ customer, code: it.code, qty: it.qty, unit: it.unit, pickupDate: date, note: notes.join('. ') }));
+    const d = parseVnDate(l, base);
+    if (d && group.length && !buffer.length) {
+      group.forEach(r => { if (!r.pickupDate) r.pickupDate = d; });
+      addNote(group, l);
+    } else if (d && !pending) {
+      pending = { date: d, note: l };
+    } else {
+      buffer.push(l);
+    }
   }
-  return rows;
+  if (group.length) {
+    // Dòng cuối ngắn kiểu tên riêng thường là tên khách của tin bị cắt, bỏ qua
+    const last = buffer[buffer.length - 1];
+    if (last && last.split(/\s+/).length <= 4 && /^\p{Lu}/u.test(last) && !/\d/.test(last)) buffer.pop();
+    addNote(group, buffer.join('. '));
+    if (pending) group.forEach(r => { if (!r.pickupDate) r.pickupDate = pending.date; });
+  }
+  return { rows, sender };
 }
 
 /* Lọc + nhóm */
@@ -883,8 +929,24 @@ function filteredOrders() {
   });
 }
 
+/* Các dòng hàng cùng một đơn (cùng lần dán, cùng khách) gom thành một thẻ */
+const orderKey = (o) => o.orderNo || [o.customer, o.createdAt, o.pickupDate].join('|');
+
+function groupOrders(lines) {
+  const map = new Map();
+  lines.forEach(o => { const k = orderKey(o); if (!map.has(k)) map.set(k, []); map.get(k).push(o); });
+  return [...map.entries()].map(([key, ls]) => {
+    const open = ls.filter(orderOpen);
+    let status = 'Chưa lấy';
+    if (!open.length) status = ls.every(o => o.status === 'Huỷ') ? 'Huỷ' : 'Đã lấy đủ';
+    else if (open.length < ls.length || ls.some(o => o.picked > 0)) status = 'Lấy một phần';
+    return { key, lines: ls, customer: ls[0].customer, status,
+      pickupDate: ls.map(o => o.pickupDate).filter(Boolean).sort()[0] || '' };
+  });
+}
+
 function orderGroups(list) {
-  const groups = [
+  const buckets = [
     { key: 'late', title: '⚠️ Quá hẹn chưa lấy', items: [] },
     { key: 'today', title: '📦 Hôm nay khách nhận', items: [] },
     { key: 'tomorrow', title: 'Ngày mai', items: [] },
@@ -892,18 +954,18 @@ function orderGroups(list) {
     { key: 'nodate', title: 'Chưa hẹn ngày', items: [] },
     { key: 'done', title: '✅ Đã lấy đủ / Huỷ', items: [] }
   ];
-  const g = Object.fromEntries(groups.map(x => [x.key, x]));
-  list.forEach(o => {
-    if (!orderOpen(o)) return g.done.items.push(o);
-    const n = daysLeft(o.pickupDate);
-    if (n === null) g.nodate.items.push(o);
-    else if (n < 0) g.late.items.push(o);
-    else if (n === 0) g.today.items.push(o);
-    else if (n === 1) g.tomorrow.items.push(o);
-    else g.soon.items.push(o);
+  const b = Object.fromEntries(buckets.map(x => [x.key, x]));
+  groupOrders(list).forEach(g => {
+    if (!orderOpen(g)) return b.done.items.push(g);
+    const n = daysLeft(g.pickupDate);
+    if (n === null) b.nodate.items.push(g);
+    else if (n < 0) b.late.items.push(g);
+    else if (n === 0) b.today.items.push(g);
+    else if (n === 1) b.tomorrow.items.push(g);
+    else b.soon.items.push(g);
   });
-  groups.forEach(x => x.items.sort((a, b) => String(a.pickupDate || '9').localeCompare(String(b.pickupDate || '9')) || a.customer.localeCompare(b.customer)));
-  return groups.filter(x => x.items.length);
+  buckets.forEach(x => x.items.sort((p, q) => String(p.pickupDate || '9').localeCompare(String(q.pickupDate || '9')) || p.customer.localeCompare(q.customer)));
+  return buckets.filter(x => x.items.length);
 }
 
 function pickupHtml(o) {
@@ -919,19 +981,32 @@ function pickupHtml(o) {
   return `<span class="due ${cls}">${wd} ${fmtDate(o.pickupDate)}${extra}</span>`;
 }
 
-function orderCardHtml(o) {
-  const pct = o.qty ? Math.min(100, Math.round(o.picked / o.qty * 100)) : 0;
+function orderLineHtml(o) {
   const c = colorOf(ORDER_STATUSES, o.status);
-  return `<div class="task-card order-card" style="--prio:${c}" onclick="openOrder('${esc(o.id)}')">
-    <div class="row" style="margin-top:0"><div class="title">${areaTag(o)}${esc(o.customer)}</div>${badge(ORDER_STATUSES, o.status)}</div>
-    ${o.customerSap ? `<div class="t-sub">KH SAP: ${esc(o.customerSap)}</div>` : ''}
-    <div class="order-item"><span><b>${esc(o.code)}</b>${o.codeSap && o.codeSap !== o.code ? `<br><span class="t-sub">SAP: ${esc(o.codeSap)}</span>` : ''}</span><span>${fmtQty(o.qty)} ${esc(o.unit)}</span></div>
-    <div class="row">${pickupHtml(o)}<span class="t-sub">${esc(o.sender)}</span></div>
-    ${o.warehouse || o.toWarehouse ? `<div class="t-sub" style="margin-top:6px">🏭 ${esc(o.warehouse || '?')} → 📍 ${esc(o.toWarehouse || '?')}</div>` : ''}
-    ${o.note ? `<div class="t-sub" style="margin-top:6px">${esc(o.note)}</div>` : ''}
-    <div class="row"><div class="progress" style="flex:1"><span style="width:${pct}%;background:${c}"></span></div>
-      <span class="t-sub">Đã lấy ${fmtQty(o.picked)}/${fmtQty(o.qty)}</span></div>
-    ${orderOpen(o) ? `<button class="move-btn" style="display:inline-block" onclick="event.stopPropagation();markPicked('${esc(o.id)}')">✓ Khách đã lấy đủ</button>` : ''}
+  return `<div class="order-line" style="--lc:${c}" onclick="event.stopPropagation();openOrder('${esc(o.id)}')">
+    <span><b>${esc(o.code)}</b>${o.codeSap && o.codeSap !== o.code ? ` <span class="t-sub">· SAP ${esc(o.codeSap)}</span>` : ''}</span>
+    <span class="qty">${fmtQty(o.qty)} ${esc(o.unit)}</span>
+    <div class="sub"><span style="color:${c}">● ${esc(o.status)} · đã lấy ${fmtQty(o.picked)}/${fmtQty(o.qty)}</span>
+      ${orderOpen(o) ? `<button class="pick" onclick="event.stopPropagation();markPicked(['${esc(o.id)}'])">✓ Lấy đủ</button>` : ''}</div>
+  </div>`;
+}
+
+function orderCardHtml(g) {
+  const f = g.lines[0];
+  const c = colorOf(ORDER_STATUSES, g.status);
+  const openIds = g.lines.filter(orderOpen).map(o => `'${esc(o.id)}'`).join(',');
+  const notes = [...new Set(g.lines.map(o => o.note).filter(Boolean))].join(' · ');
+  return `<div class="task-card order-card" style="--prio:${c}" onclick="openOrder('${esc(f.id)}')">
+    <div class="row" style="margin-top:0"><div class="title">${areaTag(f)}${esc(g.customer)}</div>${badge(ORDER_STATUSES, g.status)}</div>
+    ${f.customerSap ? `<div class="t-sub">KH SAP: ${esc(f.customerSap)}</div>` : ''}
+    <div class="order-lines">${g.lines.map(orderLineHtml).join('')}</div>
+    <div class="row">${pickupHtml(g)}<span class="t-sub">${f.createdAt ? 'Đặt ' + fmtDate(f.createdAt) : ''}${f.sender ? ' · ' + esc(f.sender) : ''}</span></div>
+    ${f.warehouse || f.toWarehouse ? `<div class="t-sub" style="margin-top:6px">🏭 ${esc(f.warehouse || '?')} → 📍 ${esc(f.toWarehouse || '?')}</div>` : ''}
+    ${notes ? `<div class="t-sub" style="margin-top:6px">${esc(notes)}</div>` : ''}
+    <div class="card-actions">
+      <button class="move-btn" style="display:inline-block" onclick="event.stopPropagation();addLineTo('${esc(f.id)}')">+ Thêm mã</button>
+      ${openIds ? `<button class="move-btn" style="display:inline-block" onclick="event.stopPropagation();markPicked([${openIds}])">✓ Khách đã lấy đủ cả đơn</button>` : ''}
+    </div>
   </div>`;
 }
 
@@ -942,6 +1017,7 @@ function orderStats(list) {
   const picked = active.reduce((s, o) => s + Math.min(Number(o.picked) || 0, Number(o.qty) || 0), 0);
   return {
     open: open.length,
+    openOrders: groupOrders(open).length,
     customers: new Set(open.map(o => o.customer)).size,
     today: open.filter(o => daysLeft(o.pickupDate) === 0).length,
     late: open.filter(o => o.pickupDate && daysLeft(o.pickupDate) < 0).length,
@@ -954,8 +1030,9 @@ function buildOrderSelects() {
   const keep = (id, html) => { const el = $(id), v = el.value; el.innerHTML = html; el.value = v; };
   keep('oWarehouse', '<option value="">Mọi kho lấy</option>' + uniq('warehouse').map(x => `<option>${esc(x)}</option>`).join(''));
   keep('oSender', '<option value="">Mọi người gửi</option>' + uniq('sender').map(x => `<option>${esc(x)}</option>`).join(''));
-  $('dlCustomers').innerHTML = uniq('customer').map(x => `<option value="${esc(x)}">`).join('');
-  $('dlCodes').innerHTML = uniq('code').map(x => `<option value="${esc(x)}">`).join('');
+  const merge = (a, b) => [...new Set([...a, ...b])].sort();
+  $('dlCustomers').innerHTML = merge(S.customers.map(c => c.name), uniq('customer')).map(x => `<option value="${esc(x)}">`).join('');
+  $('dlCodes').innerHTML = merge(S.items.map(i => i.code), uniq('code')).map(x => `<option value="${esc(x)}">`).join('');
   $('dlToWarehouses').innerHTML = uniq('toWarehouse').map(x => `<option value="${esc(x)}">`).join('');
   $('dlWarehouses').innerHTML = uniq('warehouse').map(x => `<option value="${esc(x)}">`).join('');
   $('dlSenders').innerHTML = uniq('sender').map(x => `<option value="${esc(x)}">`).join('');
@@ -966,7 +1043,7 @@ function renderOrders() {
   const list = filteredOrders();
   const s = orderStats(S.orders.filter(inArea));
   const stats = `<div class="stats">
-    <div class="stat"><div class="label">Dòng hàng chưa lấy</div><div class="value">${s.open}</div><div class="t-sub">${s.customers} khách</div></div>
+    <div class="stat"><div class="label">Đơn chưa lấy</div><div class="value">${s.openOrders}</div><div class="t-sub">${s.open} dòng hàng · ${s.customers} khách</div></div>
     <div class="stat"><div class="label">Hôm nay khách nhận</div><div class="value" style="color:#2563eb">${s.today}</div></div>
     <div class="stat"><div class="label">Quá hẹn chưa lấy</div><div class="value" style="color:var(--danger)">${s.late}</div></div>
     <div class="stat"><div class="label">Đã lấy (theo SL)</div><div class="value" style="color:var(--ok)">${s.pct}%</div></div>
@@ -984,6 +1061,8 @@ function openPaste() {
   $('pastePreview').innerHTML = '';
   $('btnSaveParsed').style.display = 'none';
   $('pasteArea').value = S.area;
+  $('pasteDate').value = todayStr();
+  $('ocrStatus').textContent = 'Có thể dán thẳng ảnh chụp tin Zalo vào ô trên.';
   try { $('pasteSender').value = localStorage.getItem('lastSender') || ''; $('pasteWarehouse').value = localStorage.getItem('lastWarehouse') || ''; $('pasteToWarehouse').value = localStorage.getItem('lastToWarehouse') || ''; } catch (e) {}
   buildOrderSelects();
   $('pasteOverlay').classList.add('show');
@@ -991,23 +1070,43 @@ function openPaste() {
 }
 function closePaste() { $('pasteOverlay').classList.remove('show'); }
 
-/* Mã SAP đã dùng lần trước cho cùng khách / cùng mã hàng */
-function sapOf(keyField, keyVal, sapField) {
-  const k = String(keyVal || '').trim().toLowerCase();
-  if (!k) return '';
+/* Tra danh mục (sheet KhachHang / MaHang), nếu chưa có thì lấy từ đơn cũ gần nhất */
+const sameKey = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+function catalogOf(keyField, keyVal) {
+  if (!String(keyVal || '').trim()) return null;
+  return keyField === 'customer'
+    ? S.customers.find(c => sameKey(c.name, keyVal))
+    : S.items.find(i => sameKey(i.code, keyVal));
+}
+
+function sapOf(keyField, keyVal, field) {
+  const c = catalogOf(keyField, keyVal);
+  if (c && c[field]) return c[field];
   for (let i = S.orders.length - 1; i >= 0; i--) {
     const o = S.orders[i];
-    if (o[sapField] && String(o[keyField]).trim().toLowerCase() === k) return o[sapField];
+    if (o[field] && sameKey(o[keyField], keyVal)) return o[field];
   }
   return '';
 }
 
-/* Tự điền mã SAP khi gõ khách hàng / mã hàng (chỉ điền ô đang trống) */
+/* Tự điền mã SAP, kho nhận, ĐVT khi gõ khách hàng / mã hàng (chỉ điền ô đang trống) */
 function fillSap(scope) {
   const get = (k) => scope.querySelector(`[data-k="${k}"], [name="${k}"]`);
-  [['customer', 'customerSap'], ['code', 'codeSap']].forEach(([k, sk]) => {
-    const inp = get(sk);
-    if (inp && !inp.value) inp.value = sapOf(k, get(k).value, sk);
+  [['customer', 'customerSap'], ['customer', 'toWarehouse'], ['code', 'codeSap'], ['code', 'unit']].forEach(([k, f]) => {
+    const inp = get(f);
+    if (inp && !inp.value) inp.value = sapOf(k, get(k).value, f);
+  });
+}
+
+/* Cập nhật danh mục trong máy sau khi lưu (máy chủ cũng tự cập nhật sheet) */
+function rememberCatalog(orders) {
+  orders.forEach(o => {
+    const c = catalogOf('customer', o.customer);
+    if (c) { if (o.customerSap) c.customerSap = o.customerSap; if (o.toWarehouse) c.toWarehouse = o.toWarehouse; }
+    else if (o.customer) S.customers.push({ name: o.customer, customerSap: o.customerSap || '', toWarehouse: o.toWarehouse || '' });
+    const it = catalogOf('code', o.code);
+    if (it) { if (o.codeSap) it.codeSap = o.codeSap; if (o.unit) it.unit = o.unit; }
+    else if (o.code) S.items.push({ code: o.code, codeSap: o.codeSap || '', unit: o.unit || '' });
   });
 }
 
@@ -1018,9 +1117,9 @@ function parsedRowHtml(r) {
       <input data-k="customerSap" value="${esc(r.customerSap ?? sapOf('customer', r.customer, 'customerSap'))}" placeholder="Mã KH SAP">
       <input data-k="code" list="dlCodes" value="${esc(r.code)}" placeholder="Mã hàng" onchange="fillSap(this.parentElement)">
       <input data-k="codeSap" value="${esc(r.codeSap ?? sapOf('code', r.code, 'codeSap'))}" placeholder="Mã hàng SAP">
-      <div class="qty-unit"><input data-k="qty" type="number" step="any" value="${r.qty}" placeholder="SL"><input data-k="unit" value="${esc(r.unit)}" placeholder="ĐVT"></div>
+      <div class="qty-unit"><input data-k="qty" type="number" step="any" value="${r.qty}" placeholder="SL"><input data-k="unit" value="${esc(r.unit || sapOf('code', r.code, 'unit'))}" placeholder="ĐVT"></div>
       <input data-k="warehouse" list="dlWarehouses" value="${esc(r.warehouse ?? wh)}" placeholder="Kho lấy">
-      <input data-k="toWarehouse" list="dlToWarehouses" value="${esc(r.toWarehouse ?? toWh)}" placeholder="Kho nhận">
+      <input data-k="toWarehouse" list="dlToWarehouses" value="${esc(r.toWarehouse ?? (toWh || sapOf('customer', r.customer, 'toWarehouse')))}" placeholder="Kho nhận">
       <input data-k="pickupDate" type="date" value="${r.pickupDate}">
       <input data-k="note" value="${esc(r.note)}" placeholder="Ghi chú">
       <button type="button" class="icon-btn" title="Bỏ dòng này" onclick="this.parentElement.remove()">✕</button>
@@ -1028,7 +1127,8 @@ function parsedRowHtml(r) {
 }
 
 function previewParsed() {
-  const rows = parseZalo($('pasteText').value);
+  const { rows, sender } = parseZalo($('pasteText').value);
+  if (sender && !$('pasteSender').value) $('pasteSender').value = sender;
   const msg = rows.length
     ? `Tách được ${rows.length} dòng. Kiểm tra và sửa nếu cần:`
     : 'Chưa tách được dòng hàng nào (dòng hàng thường có dạng <b>mã_hàng số_lượng</b>, ví dụ <b>2080banyan002 20m</b>). Chị có thể gõ tay bên dưới:';
@@ -1049,12 +1149,17 @@ function addParsedRow() {
 
 async function saveParsed() {
   const sender = $('pasteSender').value.trim();
-  const today = todayStr();
+  const createdAt = $('pasteDate').value || todayStr();
+  const stamp = createdAt.slice(2).replace(/-/g, '') + '-' + Date.now().toString(36).slice(-4).toUpperCase();
+  const orderNos = {};
   const rows = [...document.querySelectorAll('#pastePreview .parsed-row')].map(el => {
-    const o = { sender, createdAt: today, picked: 0, status: 'Chưa lấy', area: $('pasteArea').value };
+    const o = { sender, createdAt, picked: 0, status: 'Chưa lấy', area: $('pasteArea').value };
     el.querySelectorAll('[data-k]').forEach(inp => o[inp.dataset.k] = inp.value.trim());
     o.qty = Number(o.qty) || 0;
     o.area = areaOf(o);
+    // Mỗi khách trong lần dán là một đơn, các mã của khách đó dùng chung mã đơn
+    const ck = o.customer.toLowerCase();
+    o.orderNo = orderNos[ck] || (orderNos[ck] = `DH${stamp}${Object.keys(orderNos).length}`);
     return o;
   });
   if (!rows.length) return toast('Không có dòng nào để lưu', true);
@@ -1070,13 +1175,14 @@ async function saveParsed() {
   try {
     const saved = await api('saveOrders', rows);
     S.orders.push(...saved);
-    closePaste(); render(); toast(`Đã lưu ${saved.length} dòng hàng`);
+    rememberCatalog(saved);
+    closePaste(); render(); toast(`Đã lưu ${Object.keys(orderNos).length} đơn, ${saved.length} dòng hàng`);
   } catch (e) { toast(e, true); }
   btn.disabled = false; btn.textContent = 'Lưu đơn hàng';
 }
 
 /* Sửa một dòng đơn */
-function openOrder(id) {
+function openOrder(id, prefill) {
   const f = $('orderForm'); f.reset();
   const o = id ? S.orders.find(x => x.id === id) : null;
   buildOrderSelects();
@@ -1084,14 +1190,31 @@ function openOrder(id) {
   $('btnDeleteOrder').style.display = o ? '' : 'none';
   let last = {};
   try { last = { sender: localStorage.getItem('lastSender') || '', warehouse: localStorage.getItem('lastWarehouse') || '', toWarehouse: localStorage.getItem('lastToWarehouse') || '' }; } catch (e) {}
-  const data = o || { ...last, area: S.area, qty: '', picked: 0, status: 'Chưa lấy', createdAt: todayStr() };
-  ['id', 'customer', 'code', 'qty', 'unit', 'warehouse', 'toWarehouse', 'customerSap', 'codeSap', 'area', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
+  const data = o || { ...last, area: S.area, qty: '', picked: 0, status: 'Chưa lấy', createdAt: todayStr(), ...prefill };
+  ['id', 'orderNo', 'customer', 'code', 'qty', 'unit', 'warehouse', 'toWarehouse', 'customerSap', 'codeSap', 'area', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
   f.elements.area.value = areaOf(data);
   f.elements.cancelled.checked = data.status === 'Huỷ';
-  $('orderMeta').textContent = o ? `Mã: ${o.id} · Nhận đơn ${fmtDate(o.createdAt)}${o.updatedAt ? ' · Cập nhật ' + o.updatedAt.replace('T', ' ') : ''}` : '';
+  $('orderMeta').textContent = o ? `Mã: ${o.id}${o.orderNo ? ' · Đơn ' + o.orderNo : ''}${o.updatedAt ? ' · Cập nhật ' + o.updatedAt.replace('T', ' ') : ''}` : '';
   $('orderOverlay').classList.add('show');
 }
 function closeOrder() { $('orderOverlay').classList.remove('show'); }
+
+/* Thêm một mã hàng vào cùng đơn với dòng `id` */
+function addLineTo(id) {
+  const o = S.orders.find(x => x.id === id);
+  if (!o) return;
+  const keep = ['customer', 'customerSap', 'warehouse', 'toWarehouse', 'area', 'pickupDate', 'sender', 'createdAt'];
+  openOrder(null, { ...Object.fromEntries(keep.map(k => [k, o[k]])), orderNo: o.orderNo || orderKeyToNo(o) });
+}
+
+/* Dòng cũ chưa có mã đơn: tạo mã đơn chung rồi gán cho các dòng cùng nhóm khi lưu */
+function orderKeyToNo(o) {
+  const no = 'DH' + String(o.createdAt || todayStr()).slice(2).replace(/-/g, '') + '-' + Date.now().toString(36).slice(-4).toUpperCase();
+  const same = S.orders.filter(x => !x.orderNo && orderKey(x) === orderKey(o));
+  same.forEach(x => x.orderNo = no);
+  api('saveOrders', same.map(x => ({ ...x }))).catch(e => toast(e, true));
+  return no;
+}
 
 async function submitOrder(e) {
   e.preventDefault();
@@ -1102,22 +1225,27 @@ async function submitOrder(e) {
   o.status = f.elements.cancelled.checked ? 'Huỷ' : '';
   o.status = calcOrderStatus(o);
   delete o.cancelled;
+  if (!o.orderNo) o.orderNo = 'DH' + String(o.createdAt || todayStr()).slice(2).replace(/-/g, '') + '-' + Date.now().toString(36).slice(-4).toUpperCase();
   try {
     const [saved] = await api('saveOrders', [o]);
     const i = S.orders.findIndex(x => x.id === saved.id);
     if (i >= 0) S.orders[i] = saved; else S.orders.push(saved);
+    rememberCatalog([saved]);
     closeOrder(); render(); toast('Đã lưu đơn hàng');
   } catch (err) { toast(err, true); }
 }
 
-async function markPicked(id) {
-  const o = S.orders.find(x => x.id === id);
-  if (!o) return;
-  const old = { ...o };
-  o.picked = o.qty; o.status = 'Đã lấy đủ';
+async function markPicked(ids) {
+  const list = S.orders.filter(x => ids.includes(x.id));
+  if (!list.length) return;
+  const olds = list.map(o => ({ ...o }));
+  list.forEach(o => { o.picked = o.qty; o.status = 'Đã lấy đủ'; });
   render();
-  try { const [saved] = await api('saveOrders', [{ ...o }]); Object.assign(o, saved); toast(`${o.customer}: đã lấy đủ ${o.code}`); }
-  catch (e) { Object.assign(o, old); render(); toast(e, true); }
+  try {
+    const saved = await api('saveOrders', list.map(o => ({ ...o })));
+    saved.forEach(sv => Object.assign(S.orders.find(x => x.id === sv.id) || {}, sv));
+    toast(`${list[0].customer}: đã lấy đủ ${list.length > 1 ? list.length + ' mã' : list[0].code}`);
+  } catch (e) { list.forEach((o, i) => Object.assign(o, olds[i])); render(); toast(e, true); }
 }
 
 async function removeOrder() {
@@ -1129,6 +1257,38 @@ async function removeOrder() {
     closeOrder(); render(); toast('Đã xoá');
   } catch (e) { toast(e, true); }
 }
+
+/* ---------- Đọc chữ từ ảnh (Tesseract.js, chạy ngay trên trình duyệt) ---------- */
+let ocrLib = null;
+function loadOcr() {
+  return ocrLib || (ocrLib = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+    sc.onload = () => resolve(window.Tesseract);
+    sc.onerror = () => { ocrLib = null; reject('Không tải được bộ đọc chữ, kiểm tra kết nối mạng'); };
+    document.head.appendChild(sc);
+  }));
+}
+
+async function runOcr(file) {
+  const st = $('ocrStatus');
+  st.textContent = 'Đang tải bộ đọc chữ (lần đầu mất vài giây)...';
+  try {
+    const T = await loadOcr();
+    const { data } = await T.recognize(file, 'vie+eng', {
+      logger: m => { if (m.status === 'recognizing text') st.textContent = `Đang đọc chữ trong ảnh... ${Math.round(m.progress * 100)}%`; }
+    });
+    const ta = $('pasteText');
+    ta.value = (ta.value.trim() ? ta.value.trim() + '\n\n' : '') + data.text.trim();
+    st.textContent = '✓ Đã đọc xong. Chị kiểm tra lại chữ và bảng bên dưới.';
+    previewParsed();
+  } catch (e) { st.textContent = 'Lỗi đọc ảnh: ' + (e.message || e); }
+}
+
+$('pasteText').addEventListener('paste', e => {
+  const img = [...((e.clipboardData && e.clipboardData.items) || [])].find(i => i.type.startsWith('image/'));
+  if (img) { e.preventDefault(); runOcr(img.getAsFile()); }
+});
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeForm(); closePaste(); closeOrder(); } });
 init();
