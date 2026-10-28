@@ -1296,12 +1296,10 @@ function parseSapOrder(text) {
   // Ship-To dạng 80xxxx là kho/DC xxxx (801121 → 1121)
   const toWh = ship[1] ? (/^80\d{4}$/.test(ship[1]) ? ship[1].slice(2) : ship[1]) : '';
   const out = [];
-  let inItems = false;
   lines.forEach(l => {
-    if (/Order Quantity/i.test(l)) { inItems = true; return; }
-    if (!inItems) return;
-    // "10 10007003 18 TH ... POR 200x200, 2020MODERN007 1121 TG01 3012411071 ..." (số Item hay dính với Material)
-    const m = l.replace(/^[\s|\[\]]+/, '').match(/^(\d{1,4}?)\s*(\d{8})(?!\d)\W*([\d.,]+)\s*([A-Za-z²]{1,4})\b(.*)$/);
+    if (/Sold.?To|Ship.?To|Net Value|Total|Weight|Volume|Pricing|nội địa|Overview/i.test(l)) return;
+    // "10 10007003 18 TH ... POR 200x200, 2020MODERN007 1121 TG01 3012411071 ..." (số Item hay dính với Material, chữ đọc từ ảnh có thể lẫn | [ ])
+    const m = l.replace(/[|\[\]{}]/g, ' ').match(/(?:^|\D)(\d{1,4})?\s*(\d{8})(?!\d)\s*([\d.,]+)\s*([A-Za-z²]{1,4})\b(.*)$/);
     if (!m) return;
     const rest = m[5];
     const cm = rest.match(/\b(\d{4}[A-Z]{2,}[A-Z0-9-]*\d)/i);
@@ -1325,7 +1323,10 @@ function previewParsed() {
   const text = $('pasteText').value;
   if (isSapOrder(text)) {
     const g = parseSapOrder(text);
-    if (g.lines.length) return showGroups([g], `Đọc được đơn SAP ${g.note.replace('SO ', '')}, ${g.lines.length} mã hàng. Kiểm tra rồi lưu:`);
+    if (!g.lines.length) g.lines.push({ code: '', qty: '', unit: '' });
+    return showGroups([g], g.lines[0].code
+      ? `Đọc được đơn SAP ${g.note.replace('SO ', '')}, ${g.lines.length} mã hàng. Kiểm tra rồi lưu:`
+      : `Đọc được khách và ngày của đơn SAP ${g.note.replace('SO ', '')} nhưng chưa đọc được dòng hàng. Chị gõ mã hàng, số lượng bên dưới (hoặc chụp ảnh rõ hơn phần All Items):`);
   }
   const { rows, sender } = parseZalo(text);
   if (sender) $('pasteSender').value = sender;
