@@ -1278,8 +1278,56 @@ function toGroups(rows) {
   return out;
 }
 
+/* Ảnh chụp màn hình đơn hàng SAP (VA02/VA03: Sold-To, Ship-To, Req. Deliv. Date, All Items) */
+const isSapOrder = (t) => /Sold.?To/i.test(t) && /(Order Quantity|Material)/i.test(t);
+function parseSapOrder(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const all = lines.join('\n');
+  const sold = all.match(/Sold.?To\s*Party\W*(\d{5,10})\W*([^\n]*)/i) || [];
+  const ship = all.match(/Ship.?To\s*Party\W*(\d{5,10})/i) || [];
+  const soNo = (all.split(/Sold.?To/i)[0].match(/(\d{8,10})/) || [])[1] || '';
+  const dm = all.match(/Req\.?[^\n]*?(\d{2})[.\/](\d{2})[.\/](\d{4})/i);
+  const customerSap = sold[1] || '';
+  // Tên khách: lấy trong danh mục theo code, không có thì rút gọn tên công ty trên SAP
+  const known = S.customers.find(c => c.customerSap && c.customerSap === customerSap)
+    || S.orders.find(o => o.customerSap === customerSap);
+  const rawName = (sold[2] || '').split('/')[0].replace(/[|\[\]]/g, '').trim();
+  const shortName = rawName.replace(/^(c[oô]ng ty|cty)\s+/i, '').replace(/^((tnhh|cp|cổ phần|mtv|xd|tm|dv|sx|tmdv|vlxd|xnk|hkd|dntn)\s+)+/i, '').trim();
+  // Ship-To dạng 80xxxx là kho/DC xxxx (801121 → 1121)
+  const toWh = ship[1] ? (/^80\d{4}$/.test(ship[1]) ? ship[1].slice(2) : ship[1]) : '';
+  const out = [];
+  let inItems = false;
+  lines.forEach(l => {
+    if (/Order Quantity/i.test(l)) { inItems = true; return; }
+    if (!inItems) return;
+    // "10 10007003 18 TH ... POR 200x200, 2020MODERN007 1121 TG01 3012411071 ..." (số Item hay dính với Material)
+    const m = l.replace(/^[\s|\[\]]+/, '').match(/^(\d{1,4}?)\s*(\d{8})(?!\d)\W*([\d.,]+)\s*([A-Za-z²]{1,4})\b(.*)$/);
+    if (!m) return;
+    const rest = m[5];
+    const cm = rest.match(/\b(\d{4}[A-Z]{2,}[A-Z0-9-]*\d)/i);
+    const after = cm ? rest.slice(cm.index + cm[0].length) : rest;
+    out.push({
+      code: cm ? cm[1].toUpperCase() : m[2], codeSap: m[2], qty: vnNum(m[3]), unit: m[4].toLowerCase(),
+      warehouse: (after.match(/\b(\d{4})\b/) || [])[1] || '',
+      lot: (after.match(/\b(\d{10})\b/) || [])[1] || ''
+    });
+  });
+  return {
+    customer: known ? (known.name || known.customer) : shortName, customerSap, toWarehouse: toWh,
+    warehouse: out.length ? out[0].warehouse : undefined,
+    pickupDate: dm ? `${dm[3]}-${dm[2]}-${dm[1]}` : '',
+    note: soNo ? 'SO ' + soNo : '',
+    lines: out
+  };
+}
+
 function previewParsed() {
-  const { rows, sender } = parseZalo($('pasteText').value);
+  const text = $('pasteText').value;
+  if (isSapOrder(text)) {
+    const g = parseSapOrder(text);
+    if (g.lines.length) return showGroups([g], `Đọc được đơn SAP ${g.note.replace('SO ', '')}, ${g.lines.length} mã hàng. Kiểm tra rồi lưu:`);
+  }
+  const { rows, sender } = parseZalo(text);
   if (sender) $('pasteSender').value = sender;
   const groups = toGroups(rows);
   const msg = rows.length
