@@ -149,7 +149,17 @@ tbody tr:hover{background:var(--surface-2)}
 .parsed-row input:focus{border-color:var(--primary)}
 .qty-unit{display:flex;gap:4px}
 .qty-unit input:last-child{width:56px;flex:none}
-.paste-opts{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.paste-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.pgroup{position:relative;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px;background:var(--surface-2)}
+.pgroup input{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;outline:none;min-width:0;width:100%}
+.pgroup input:focus{border-color:var(--primary)}
+.pgroup .field label{font-size:12px}
+.pg-head{display:grid;grid-template-columns:1.8fr 1fr 1.2fr .8fr .8fr auto;gap:8px;align-items:end;padding-bottom:10px;border-bottom:1px dashed var(--border)}
+.pg-lines{margin-top:10px}
+.pg-cols{display:grid;grid-template-columns:1.6fr 1fr 1.2fr 38px;gap:6px;padding:8px 9px 4px;font-size:12px;font-weight:600;color:var(--muted)}
+.pg-lines .parsed-row{grid-template-columns:1.6fr 1fr 1.2fr auto;margin-bottom:6px;padding:6px 8px;background:var(--surface)}
+.pg-add{color:var(--primary);font-weight:600;font-size:13px;padding:4px 0}
+.pg-foot{display:grid;grid-template-columns:1fr 2.5fr;gap:8px;margin-top:8px;padding-top:10px;border-top:1px dashed var(--border)}
 .paste-opts select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;outline:none;width:100%}
 .area-switch{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px}
 .area-switch button{padding:6px 12px;border-radius:8px;font-weight:600;color:var(--muted);white-space:nowrap}
@@ -199,6 +209,17 @@ tbody tr:hover{background:var(--surface-2)}
   .move-btn{display:inline-block}
   .order-grid{grid-template-columns:1fr}
   .paste-opts{grid-template-columns:1fr 1fr}
+  .pg-head{grid-template-columns:1fr 1fr}
+  .pg-head .pg-cust{grid-column:1/-1}
+  .pg-head .pg-cust{padding-right:44px}
+  .pg-head .icon-btn{position:absolute;top:10px;right:10px}
+  .pg-cols{display:none}
+  .pg-lines .parsed-row{grid-template-columns:1fr 1fr auto;grid-template-areas:"code code x" "sap qty qty"}
+  .pg-lines [data-k=code]{grid-area:code}
+  .pg-lines [data-k=codeSap]{grid-area:sap}
+  .pg-lines .qty-unit{grid-area:qty}
+  .pg-lines .parsed-row .icon-btn{grid-area:x}
+  .pg-foot{grid-template-columns:1fr}
   .area-switch button{padding:6px 9px}
   .parsed-row{grid-template-columns:1fr 1fr;padding:10px;border:1px solid var(--border);border-radius:10px}
   .parsed-row .icon-btn{grid-column:2;justify-self:end}
@@ -329,9 +350,9 @@ tbody tr:hover{background:var(--surface-2)}
         <input type="file" id="ocrFile" accept="image/*" hidden onchange="if (this.files[0]) runOcr(this.files[0]); this.value = ''">
         <span class="t-sub" id="ocrStatus">Có thể dán thẳng ảnh chụp tin Zalo vào ô trên.</span>
       </div>
+      <input type="hidden" id="pasteSender">
       <div class="paste-opts">
         <div class="field"><label>Ngày đặt</label><input id="pasteDate" type="date"></div>
-        <div class="field"><label>Người gửi đơn</label><input id="pasteSender" list="dlSenders" placeholder="Ví dụ: Ngọc Vĩ"></div>
         <div class="field"><label>Kho lấy hàng</label><input id="pasteWarehouse" list="dlWarehouses" placeholder="Ví dụ: 1111"></div>
         <div class="field"><label>Kho nhận hàng</label><input id="pasteToWarehouse" list="dlToWarehouses" placeholder="Ví dụ: Cần Thơ"></div>
         <div class="field"><label>Khu vực (khi chưa có kho nhận)</label><select id="pasteArea" class="area-select"></select></div>
@@ -830,7 +851,7 @@ function calcOrderStatus(o) {
 /* Tách tin Zalo thành các dòng đơn hàng.
  * Mỗi đoạn (cách nhau dòng trống) là một tin: dòng chữ đầu là khách hàng,
  * dòng "mã số_lượng đơn_vị" là hàng, câu có ngày (thứ 2 tuần sau, mai, 05/11...) là ngày nhận. */
-const ITEM_RE = /^([A-Za-z0-9][\w.\/-]*\d[\w.\/-]*|[A-Za-z][\w.\/-]*[A-Za-z]\d*)\s*[:x×\-]?\s*(\d+(?:[.,]\d+)?)\s*(m2|m²|m3|md|m|viên|v|thùng|th|hộp|cái|bộ|kg|tấn|bao|cuộn|tấm|cây|kiện|pallet|lít|lon)?(?:\s*\+?\s*(\d+)\s*(viên|v))?\.?$/i;
+const ITEM_RE = /^([A-Za-z0-9][\w.\/-]*\d[\w.\/-]*|[A-Za-z][\w.\/-]*[A-Za-z]\d*|\p{L}[\p{L} ]*\p{L})\s*[:x×\-]?\s*(\d+(?:[.,]\d+)?)\s*(m2|m²|m3|md|m|viên|v|thùng|th|hộp|cái|bộ|kg|tấn|bao|bag|bịch|gói|cuộn|tấm|cây|kiện|pallet|lít|lon)?(?:\s*\+?\s*(\d+)\s*(viên|v))?\.?$/iu;
 const NOISE_RE = /^(\d{1,2}:\d{2}.*|hôm nay|hôm qua|đã xem|đã nhận|đã gửi)$/i;
 
 function parseItemLine(line) {
@@ -1119,8 +1140,8 @@ function sapOf(keyField, keyVal, field) {
 function fillSap(scope) {
   const get = (k) => scope.querySelector(`[data-k="${k}"], [name="${k}"]`);
   [['customer', 'customerSap'], ['customer', 'toWarehouse'], ['code', 'codeSap'], ['code', 'unit'], ['code', 'perBox'], ['code', 'm2PerBox']].forEach(([k, f]) => {
-    const inp = get(f);
-    if (inp && !inp.value) inp.value = sapOf(k, get(k).value, f) || '';
+    const inp = get(f), src = get(k);
+    if (inp && src && !inp.value) inp.value = sapOf(k, src.value, f) || '';
   });
   if (scope.elements && scope.elements.boxTh) syncBoxes(scope);
 }
@@ -1137,80 +1158,117 @@ function rememberCatalog(orders) {
   });
 }
 
-function parsedRowHtml(r) {
+/* Xem trước khi lưu: mỗi đơn là một khung
+ * đầu khung: khách hàng, code khách, người đặt; giữa: từng mã hàng một dòng; cuối: ngày lấy hàng, ghi chú */
+function parsedLineHtml(r) {
   if (r.extraV) {
     // "10 thùng 5 viên": đổi ra tổng số viên nếu biết số viên/thùng, không thì ghi chú lại
     const { perBox } = convOf(r);
     if (perBox) { r.qty = r.qty * perBox + r.extraV; r.unit = 'viên'; }
-    else r.note = [r.note, `+ ${r.extraV} viên`].filter(Boolean).join('. ');
+    else r.lineNote = `+ ${r.extraV} viên`;
     delete r.extraV;
   }
-  const wh = $('pasteWarehouse').value.trim(), toWh = $('pasteToWarehouse').value.trim();
-  return `<div class="parsed-row">
-      <input data-k="customer" list="dlCustomers" value="${esc(r.customer)}" placeholder="Khách hàng" onchange="fillSap(this.parentElement)">
-      <input data-k="customerSap" value="${esc(r.customerSap ?? sapOf('customer', r.customer, 'customerSap'))}" placeholder="Mã KH SAP">
+  return `<div class="parsed-row pline">
       <input data-k="code" list="dlCodes" value="${esc(r.code)}" placeholder="Mã hàng" onchange="fillSap(this.parentElement)">
       <input data-k="codeSap" value="${esc(r.codeSap ?? sapOf('code', r.code, 'codeSap'))}" placeholder="Mã hàng SAP">
       <div class="qty-unit"><input data-k="qty" type="number" step="any" value="${r.qty}" placeholder="SL"><input data-k="unit" value="${esc(r.unit || sapOf('code', r.code, 'unit'))}" placeholder="ĐVT"></div>
-      <input data-k="warehouse" list="dlWarehouses" value="${esc(r.warehouse ?? wh)}" placeholder="Kho lấy">
-      <input data-k="toWarehouse" list="dlToWarehouses" value="${esc(r.toWarehouse ?? (toWh || sapOf('customer', r.customer, 'toWarehouse')))}" placeholder="Kho nhận">
-      <input data-k="pickupDate" type="date" value="${r.pickupDate}">
-      <input data-k="note" value="${esc(r.note)}" placeholder="Ghi chú">
-      <button type="button" class="icon-btn" title="Bỏ dòng này" onclick="this.parentElement.remove()">✕</button>
+      <button type="button" class="icon-btn" title="Bỏ mã này" onclick="this.parentElement.remove()">✕</button>
     </div>`;
+}
+
+function parsedGroupHtml(g) {
+  const wh = $('pasteWarehouse').value.trim(), toWh = $('pasteToWarehouse').value.trim();
+  const notes = [...new Set([g.note, ...g.lines.map(l => l.note), ...g.lines.map(l => l.lineNote && `${l.code} ${l.lineNote}`)].filter(Boolean))].join('. ');
+  return `<div class="pgroup">
+    <div class="pg-head">
+      <div class="field pg-cust"><label>Khách hàng</label><input data-k="customer" list="dlCustomers" value="${esc(g.customer)}" placeholder="Tên khách" onchange="fillSap(this.closest('.pg-head'))"></div>
+      <div class="field"><label>Code khách hàng</label><input data-k="customerSap" value="${esc(g.customerSap ?? sapOf('customer', g.customer, 'customerSap'))}" placeholder="Mã KH SAP"></div>
+      <div class="field"><label>Người đặt hàng</label><input data-k="sender" list="dlSenders" value="${esc(g.sender ?? $('pasteSender').value)}" placeholder="Ví dụ: Ngọc Vĩ"></div>
+      <div class="field"><label>Kho lấy</label><input data-k="warehouse" list="dlWarehouses" value="${esc(g.warehouse ?? wh)}"></div>
+      <div class="field"><label>Kho nhận</label><input data-k="toWarehouse" list="dlToWarehouses" value="${esc(g.toWarehouse ?? (toWh || sapOf('customer', g.customer, 'toWarehouse')))}"></div>
+      <button type="button" class="icon-btn" title="Bỏ cả đơn này" onclick="this.closest('.pgroup').remove()">✕</button>
+    </div>
+    <div class="pg-cols"><span>Mã hàng</span><span>Mã hàng SAP</span><span>Số lượng · ĐVT</span></div>
+    <div class="pg-lines">${g.lines.map(parsedLineHtml).join('')}</div>
+    <button type="button" class="pg-add" onclick="addParsedLine(this)">+ Thêm mã hàng</button>
+    <div class="pg-foot">
+      <div class="field"><label>Ngày lấy hàng</label><input data-k="pickupDate" type="date" value="${esc(g.pickupDate || '')}"></div>
+      <div class="field"><label>Ghi chú</label><input data-k="note" value="${esc(notes)}"></div>
+    </div>
+  </div>`;
+}
+
+/* Các dòng tách được → nhóm theo khách (giữ thứ tự trong tin) */
+function toGroups(rows) {
+  const out = [];
+  rows.forEach(r => {
+    let g = out.find(x => sameKey(x.customer, r.customer));
+    if (!g) out.push(g = { customer: r.customer, pickupDate: '', note: '', lines: [] });
+    if (!g.pickupDate) g.pickupDate = r.pickupDate;
+    g.lines.push(r);
+  });
+  return out;
 }
 
 function previewParsed() {
   const { rows, sender } = parseZalo($('pasteText').value);
-  if (sender && !$('pasteSender').value) $('pasteSender').value = sender;
+  if (sender) $('pasteSender').value = sender;
+  const groups = toGroups(rows);
   const msg = rows.length
-    ? `Tách được ${rows.length} dòng. Kiểm tra và sửa nếu cần:`
+    ? `Tách được ${groups.length} đơn, ${rows.length} mã hàng. Kiểm tra và sửa nếu cần:`
     : 'Chưa tách được dòng hàng nào (dòng hàng thường có dạng <b>mã_hàng số_lượng</b>, ví dụ <b>2080banyan002 20m</b>). Chị có thể gõ tay bên dưới:';
-  if (!rows.length) rows.push({ customer: '', code: '', qty: '', unit: '', pickupDate: '', note: '' });
-  $('pastePreview').innerHTML = `<div class="t-sub" style="margin:4px 0 8px">${msg}</div><div id="parsedRows">${rows.map(parsedRowHtml).join('')}</div>
-    <button type="button" class="btn btn-ghost" style="margin-top:8px" onclick="addParsedRow()">+ Thêm dòng</button>`;
+  if (!groups.length) groups.push({ customer: '', pickupDate: '', note: '', lines: [{ code: '', qty: '', unit: '' }] });
+  $('pastePreview').innerHTML = `<div class="t-sub" style="margin:4px 0 8px">${msg}</div><div id="parsedRows">${groups.map(parsedGroupHtml).join('')}</div>
+    <button type="button" class="btn btn-ghost" style="margin-top:4px" onclick="addParsedRow()">+ Thêm đơn khách khác</button>`;
   $('btnSaveParsed').style.display = '';
 }
 
+function addParsedLine(btn) {
+  const box = btn.closest('.pgroup').querySelector('.pg-lines');
+  const last = box.lastElementChild;
+  box.insertAdjacentHTML('beforeend', parsedLineHtml({ code: '', qty: '', unit: last ? last.querySelector('[data-k="unit"]').value : '' }));
+  box.lastElementChild.querySelector('[data-k="code"]').focus();
+}
+
 function addParsedRow() {
-  const rows = document.querySelectorAll('#parsedRows .parsed-row');
-  const last = rows[rows.length - 1];
-  const val = (k) => last ? last.querySelector(`[data-k="${k}"]`).value : '';
-  // Dòng mới giữ lại khách, kho, ngày nhận của dòng trên để gõ nhanh
-  $('parsedRows').insertAdjacentHTML('beforeend', parsedRowHtml({ customer: val('customer'), code: '', qty: '', unit: val('unit'), warehouse: val('warehouse'), toWarehouse: val('toWarehouse'), pickupDate: val('pickupDate'), note: '' }));
-  $('parsedRows').lastElementChild.querySelector('[data-k="code"]').focus();
+  $('parsedRows').insertAdjacentHTML('beforeend', parsedGroupHtml({ customer: '', pickupDate: '', note: '', lines: [{ code: '', qty: '', unit: '' }] }));
+  $('parsedRows').lastElementChild.querySelector('[data-k="customer"]').focus();
 }
 
 async function saveParsed() {
-  const sender = $('pasteSender').value.trim();
   const createdAt = $('pasteDate').value || todayStr();
   const stamp = createdAt.slice(2).replace(/-/g, '') + '-' + Date.now().toString(36).slice(-4).toUpperCase();
-  const orderNos = {};
-  const rows = [...document.querySelectorAll('#pastePreview .parsed-row')].map(el => {
-    const o = { sender, createdAt, picked: 0, status: 'Chưa lấy', area: $('pasteArea').value };
-    el.querySelectorAll('[data-k]').forEach(inp => o[inp.dataset.k] = inp.value.trim());
-    o.qty = Number(o.qty) || 0;
-    o.area = areaOf(o);
-    // Mỗi khách trong lần dán là một đơn, các mã của khách đó dùng chung mã đơn
-    const ck = o.customer.toLowerCase();
-    o.orderNo = orderNos[ck] || (orderNos[ck] = `DH${stamp}${Object.keys(orderNos).length}`);
-    return o;
+  const rows = [];
+  let bad = '';
+  [...document.querySelectorAll('#pastePreview .pgroup')].forEach((gEl, gi) => {
+    const head = {};
+    gEl.querySelectorAll('.pg-head [data-k], .pg-foot [data-k]').forEach(inp => head[inp.dataset.k] = inp.value.trim());
+    // Mỗi khung là một đơn, các mã trong khung dùng chung mã đơn
+    const orderNo = `DH${stamp}${gi}`;
+    gEl.querySelectorAll('.pline').forEach(el => {
+      const o = { ...head, createdAt, picked: 0, status: 'Chưa lấy', area: $('pasteArea').value, orderNo };
+      el.querySelectorAll('[data-k]').forEach(inp => o[inp.dataset.k] = inp.value.trim());
+      o.qty = Number(o.qty) || 0;
+      o.area = areaOf(o);
+      if (!bad && (!o.customer || !o.code)) bad = `Đơn ${gi + 1} thiếu khách hàng hoặc mã hàng`;
+      rows.push(o);
+    });
   });
   if (!rows.length) return toast('Không có dòng nào để lưu', true);
-  const bad = rows.findIndex(o => !o.customer || !o.code);
-  if (bad >= 0) return toast(`Dòng ${bad + 1} thiếu khách hàng hoặc mã hàng`, true);
+  if (bad) return toast(bad, true);
+  const nOrders = new Set(rows.map(o => o.orderNo)).size;
   // Cảnh báo khi dòng giống hệt một đơn chưa lấy đã lưu (dán trùng tin)
   const key = (o) => [o.customer, o.code, Number(o.qty), o.pickupDate || ''].join('|').toLowerCase();
   const existing = new Set(S.orders.filter(orderOpen).map(key));
   const dup = rows.filter(o => existing.has(key(o)));
   if (dup.length && !confirm(`${dup.length} dòng đã có rồi (${dup.map(o => o.customer + ' · ' + o.code).join(', ')}).\nVẫn lưu thêm?`)) return;
-  try { localStorage.setItem('lastSender', sender); localStorage.setItem('lastWarehouse', $('pasteWarehouse').value.trim()); localStorage.setItem('lastToWarehouse', $('pasteToWarehouse').value.trim()); } catch (e) {}
+  try { localStorage.setItem('lastSender', rows[rows.length - 1].sender || ''); localStorage.setItem('lastWarehouse', $('pasteWarehouse').value.trim()); localStorage.setItem('lastToWarehouse', $('pasteToWarehouse').value.trim()); } catch (e) {}
   const btn = $('btnSaveParsed'); btn.disabled = true; btn.textContent = 'Đang lưu...';
   try {
     const saved = await api('saveOrders', rows);
     S.orders.push(...saved);
     rememberCatalog(saved);
-    closePaste(); render(); toast(`Đã lưu ${Object.keys(orderNos).length} đơn, ${saved.length} dòng hàng`);
+    closePaste(); render(); toast(`Đã lưu ${nOrders} đơn, ${saved.length} mã hàng`);
   } catch (e) { toast(e, true); }
   btn.disabled = false; btn.textContent = 'Lưu đơn hàng';
 }
@@ -1370,56 +1428,87 @@ let xlsxLib = null;
 function loadXlsx() {
   return xlsxLib || (xlsxLib = new Promise((resolve, reject) => {
     const sc = document.createElement('script');
-    sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    sc.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
     sc.onload = () => resolve(window.XLSX);
     sc.onerror = () => { xlsxLib = null; reject('Không tải được bộ tạo file Excel, kiểm tra kết nối mạng'); };
     document.head.appendChild(sc);
   }));
 }
 
-const EX_HEAD = [['Nơi lấy hàng', 'Mã SAP', 'Mã Hàng', 'Số Lượng', '', 'Lô', 'Khách Hàng'], ['', '', '', 'TH', 'V', '', '']];
-const EX_MERGES = [0, 1, 2, 5, 6].map(c => ({ s: { r: 0, c }, e: { r: 1, c } })).concat([{ s: { r: 0, c: 3 }, e: { r: 0, c: 4 } }]);
+const EX_HEAD = [['Nơi lấy hàng', 'Nơi nhận hàng', 'Mã SAP', 'Mã Hàng', 'Số Lượng', '', 'Lô', 'Khách Hàng'], ['', '', '', '', 'TH', 'V', '', '']];
+const EX_MERGES = [0, 1, 2, 3, 6, 7].map(c => ({ s: { r: 0, c }, e: { r: 1, c } })).concat([{ s: { r: 0, c: 4 }, e: { r: 0, c: 5 } }]);
 const exQty = (o) => toBoxes(o.qty, o.unit, convOf(o));
+const custLabel = (o) => o.customerSap ? `${o.customer} - ${o.customerSap}` : o.customer;
 
-/* Dòng EX; merge = true thì cộng các dòng cùng kho lấy + mã hàng + lô thành một */
+/* Dòng EX; merge = true thì cộng các dòng cùng nơi lấy + nơi nhận + mã hàng + lô thành một */
 function exRows(lines, merge) {
   const out = [], idx = {};
   lines.forEach(o => {
     const cv = convOf(o), r = exQty(o);
-    const k = [o.warehouse, o.codeSap || o.code, o.lot].join('|').toLowerCase();
+    const k = [o.warehouse, o.toWarehouse, o.codeSap || o.code, o.lot].join('|').toLowerCase();
     if (merge && r && idx[k] !== undefined) {
       const x = out[idx[k]];
-      if (!x.customers.includes(o.customer)) x.customers.push(o.customer);
+      if (!x.customers.includes(custLabel(o))) x.customers.push(custLabel(o));
       if (cv.perBox) { const pcs = x.th * cv.perBox + x.v + r.th * cv.perBox + r.v; x.th = Math.floor(pcs / cv.perBox); x.v = pcs % cv.perBox; }
       else { x.th += r.th; x.v += r.v; }
       x.src.push(o);
       return;
     }
-    const x = { warehouse: o.warehouse, codeSap: o.codeSap, code: o.code, th: r ? r.th : '', v: r ? r.v : '', lot: o.lot || '', customers: [o.customer], src: [o], noConv: !r };
+    // Chưa có quy đổi: ghi nguyên số lượng + ĐVT vào cột TH (tô vàng)
+    const x = { warehouse: o.warehouse, toWarehouse: o.toWarehouse, codeSap: o.codeSap, code: o.code, th: r ? r.th : `${fmtQty(o.qty)} ${o.unit || ''}`.trim(), v: r ? r.v : '',
+      lot: o.lot || '', customers: [custLabel(o)], src: [o], noConv: !r };
     if (r && merge) idx[k] = out.length;
     out.push(x);
   });
   return out;
 }
 
-function exSheet(X, rows) {
-  const aoa = EX_HEAD.concat(rows.map(x => [x.warehouse || '', x.codeSap || '', x.code, x.th === 0 ? '' : x.th, x.v || '', x.lot, x.customers.join(', ')]));
+/* Định dạng ô (xlsx-js-style): tiêu đề nền xanh, chữ đậm, kẻ khung */
+const XS = (() => {
+  const line = { style: 'thin', color: { rgb: '7F7F7F' } };
+  const border = { top: line, bottom: line, left: line, right: line };
+  const font = { name: 'Times New Roman', sz: 12 };
+  return {
+    head: { font: { ...font, bold: true }, fill: { fgColor: { rgb: 'BDD7EE' } }, alignment: { horizontal: 'center', vertical: 'center', wrapText: true }, border },
+    title: { font: { ...font, bold: true, sz: 14 } },
+    cell: { font, border, alignment: { vertical: 'center' } },
+    num: { font, border, alignment: { horizontal: 'center', vertical: 'center' } },
+    warn: { font, border, fill: { fgColor: { rgb: 'FFF2CC' } }, alignment: { horizontal: 'center', vertical: 'center' } },
+    total: { font: { ...font, bold: true }, border, fill: { fgColor: { rgb: 'F2F2F2' } }, alignment: { horizontal: 'center', vertical: 'center' } }
+  };
+})();
+
+/* Bảng có định dạng: headRows dòng tiêu đề bắt đầu từ dòng `top`; style(r, c, v) cho từng ô dữ liệu */
+function styledSheet(X, aoa, { top = 0, headRows = 1, cols, merges = [], style } = {}) {
   const ws = X.utils.aoa_to_sheet(aoa);
-  ws['!merges'] = EX_MERGES;
-  ws['!cols'] = [12, 12, 30, 8, 8, 14, 45].map(w => ({ wch: w }));
+  const range = X.utils.decode_range(ws['!ref']);
+  for (let r = 0; r <= range.e.r; r++) for (let c = 0; c <= range.e.c; c++) {
+    const ref = X.utils.encode_cell({ r, c });
+    if (r < top) { if (ws[ref]) ws[ref].s = XS.title; continue; }
+    if (!aoa[r] || !aoa[r].length) continue;
+    if (!ws[ref]) ws[ref] = { t: 's', v: '' };
+    ws[ref].s = r < top + headRows ? XS.head : (style ? style(r - top - headRows, c, ws[ref].v) : (typeof ws[ref].v === 'number' ? XS.num : XS.cell));
+  }
+  ws['!merges'] = merges;
+  if (cols) ws['!cols'] = cols.map(w => ({ wch: w }));
+  ws['!rows'] = aoa.map((row, r) => r >= top && r < top + headRows ? { hpt: 22 } : { hpt: 18 });
   return ws;
 }
 
-const DETAIL_HEAD = ['Ngày đặt', 'Mã đơn', 'Khu vực', 'Khách hàng', 'Mã KH SAP', 'Mã hàng', 'Mã hàng SAP', 'SL đặt', 'ĐVT', 'Thùng', 'Viên', 'SL đã lấy', 'SL còn lại', 'Trạng thái', 'Kho lấy', 'Kho nhận', 'Ngày khách nhận', 'Người gửi', 'Lô', 'Ghi chú'];
+function exSheet(X, rows) {
+  const aoa = EX_HEAD.concat(rows.map(x => [x.warehouse || '', x.toWarehouse || '', x.codeSap || '', x.code, x.th === 0 ? '' : x.th, x.v || '', x.lot, x.customers.join(', ')]));
+  return styledSheet(X, aoa, { headRows: 2, merges: EX_MERGES, cols: [13, 14, 12, 28, 10, 7, 14, 42],
+    style: (i, c) => rows[i].noConv && c === 4 ? XS.warn : ([3, 7].includes(c) ? XS.cell : XS.num) });
+}
+
+const DETAIL_HEAD = ['Ngày đặt', 'Mã đơn', 'Khu vực', 'Khách hàng', 'Mã KH SAP', 'Mã hàng', 'Mã hàng SAP', 'SL đặt', 'ĐVT', 'Thùng', 'Viên', 'SL đã lấy', 'SL còn lại', 'Trạng thái', 'Nơi lấy hàng (điều chuyển về)', 'Nơi nhận hàng', 'Ngày khách nhận', 'Người gửi', 'Lô', 'Ghi chú'];
 function detailSheet(X, lines) {
   const aoa = [DETAIL_HEAD].concat(lines.map(o => {
     const r = exQty(o) || { th: '', v: '' };
     return [fmtDate(o.createdAt), o.orderNo, areaOf(o) ? 'KV ' + areaOf(o) : '', o.customer, o.customerSap, o.code, o.codeSap, Number(o.qty) || 0, o.unit, r.th, r.v || '',
       Number(o.picked) || 0, Math.max(0, (Number(o.qty) || 0) - (Number(o.picked) || 0)), o.status, o.warehouse, o.toWarehouse, fmtDate(o.pickupDate), o.sender, o.lot || '', o.note];
   }));
-  const ws = X.utils.aoa_to_sheet(aoa);
-  ws['!cols'] = DETAIL_HEAD.map((h, i) => ({ wch: [3, 5, 6].includes(i) ? 24 : i === 19 ? 40 : 12 }));
-  return ws;
+  return styledSheet(X, aoa, { cols: DETAIL_HEAD.map((h, i) => [3, 5].includes(i) ? 24 : i === 19 ? 40 : i === 14 ? 16 : 12) });
 }
 
 async function downloadBook(name, sheets) {
@@ -1481,25 +1570,31 @@ async function exportMonth() {
     return [label, groupOrders(ls).length, new Set(ls.map(o => o.customer)).size, ls.length,
       ls.filter(o => o.status === 'Đã lấy đủ').length, ls.filter(o => o.status === 'Lấy một phần').length, ls.filter(o => o.status === 'Chưa lấy').length, ls.filter(o => o.status === 'Huỷ').length, pct(p, q)];
   };
-  const summary = [[`BÁO CÁO ĐƠN HÀNG THÁNG ${m.split('-').reverse().join('/')}${S.area ? ' · KV ' + S.area : ''}`], [],
-    ['Khu vực', 'Số đơn', 'Số khách', 'Số dòng hàng', 'Đã lấy đủ', 'Lấy một phần', 'Chưa lấy', 'Huỷ', '% đã lấy (theo SL)']]
-    .concat(areas.map(a => sumRow(a ? 'KV ' + a : 'Chưa gán', lines.filter(o => (areaOf(o) || '') === a))))
-    .concat([sumRow('Tổng', lines)]);
+  const SUM_HEAD = ['Số đơn', 'Số khách', 'Số dòng hàng', 'Đã lấy đủ', 'Lấy một phần', 'Chưa lấy', 'Huỷ', '% đã lấy (theo SL)'];
+  const byArea = [['Khu vực', ...SUM_HEAD]].concat(areas.map(a => sumRow(a ? 'KV ' + a : 'Chưa gán', lines.filter(o => (areaOf(o) || '') === a)))).concat([sumRow('Tổng', lines)]);
+  const whs = [...new Set(lines.map(o => o.warehouse || ''))].sort();
+  const byWh = [['Nơi lấy hàng (điều chuyển về)', ...SUM_HEAD]].concat(whs.map(w => sumRow(w || 'Chưa có', lines.filter(o => (o.warehouse || '') === w))));
+  const title = `BÁO CÁO ĐƠN HÀNG THÁNG ${m.split('-').reverse().join('/')}${S.area ? ' · KV ' + S.area : ''}`;
   // Theo khách + mã hàng
   const map = new Map();
   active.forEach(o => {
-    const k = [areaOf(o), o.customer, o.code, o.unit].join('|').toLowerCase();
+    const k = [areaOf(o), o.customer, o.warehouse, o.toWarehouse, o.code, o.unit].join('|').toLowerCase();
     if (!map.has(k)) map.set(k, { ...o, qty: 0, picked: 0, orders: new Set() });
     const x = map.get(k); x.qty += num(o.qty); x.picked += Math.min(num(o.picked), num(o.qty)); x.orders.add(orderKey(o));
   });
-  const byCust = [['Khu vực', 'Khách hàng', 'Mã KH SAP', 'Mã hàng', 'Mã hàng SAP', 'Số đơn', 'SL đặt', 'ĐVT', 'Thùng', 'Viên', 'SL đã lấy', 'SL còn lại', '% đã lấy']]
+  const byCust = [['Khu vực', 'Khách hàng', 'Mã KH SAP', 'Nơi lấy hàng (điều chuyển về)', 'Nơi nhận hàng', 'Mã hàng', 'Mã hàng SAP', 'Số đơn', 'SL đặt', 'ĐVT', 'Thùng', 'Viên', 'SL đã lấy', 'SL còn lại', '% đã lấy']]
     .concat([...map.values()].sort((a, b) => String(areaOf(a)).localeCompare(String(areaOf(b))) || a.customer.localeCompare(b.customer) || a.code.localeCompare(b.code)).map(x => {
       const r = exQty(x) || { th: '', v: '' };
-      return [areaOf(x) ? 'KV ' + areaOf(x) : '', x.customer, x.customerSap, x.code, x.codeSap, x.orders.size, x.qty, x.unit, r.th, r.v || '', x.picked, Math.max(0, x.qty - x.picked), pct(x.picked, x.qty)];
+      return [areaOf(x) ? 'KV ' + areaOf(x) : '', x.customer, x.customerSap, x.warehouse || '', x.toWarehouse || '', x.code, x.codeSap, x.orders.size, x.qty, x.unit, r.th, r.v || '', x.picked, Math.max(0, x.qty - x.picked), pct(x.picked, x.qty)];
     }));
   const ok = await downloadBook(`BaoCao_DonHang_${m}${S.area ? '_KV' + S.area : ''}`, X => {
-    const ws1 = X.utils.aoa_to_sheet(summary); ws1['!cols'] = [16, 10, 10, 12, 12, 12, 12, 8, 18].map(w => ({ wch: w }));
-    const ws2 = X.utils.aoa_to_sheet(byCust); ws2['!cols'] = [8, 28, 12, 26, 14, 8, 10, 8, 8, 8, 10, 10, 10].map(w => ({ wch: w }));
+    // Trang Tổng hợp: bảng theo khu vực, bên dưới là bảng theo nơi lấy hàng
+    const aoa1 = [[title], [], ...byArea, [], [], ...byWh];
+    const ws1 = styledSheet(X, aoa1, { top: 2, headRows: 1, cols: [28, 10, 10, 13, 11, 13, 10, 8, 18] });
+    const h2 = 2 + byArea.length + 2;
+    byWh[0].forEach((_, c) => { ws1[X.utils.encode_cell({ r: h2, c })].s = XS.head; });
+    byArea[byArea.length - 1].forEach((_, c) => { ws1[X.utils.encode_cell({ r: 2 + byArea.length - 1, c })].s = XS.total; });
+    const ws2 = styledSheet(X, byCust, { cols: [8, 26, 12, 16, 14, 24, 13, 8, 10, 8, 8, 8, 10, 10, 10] });
     return [['Tổng hợp', ws1], ['Theo khách', ws2], ['Chi tiết', detailSheet(X, lines)], ['EX', exSheet(X, exRows(active, false))]];
   });
   if (ok) toast(`Đã tải báo cáo tháng ${m.split('-').reverse().join('/')}: ${groupOrders(lines).length} đơn`);
