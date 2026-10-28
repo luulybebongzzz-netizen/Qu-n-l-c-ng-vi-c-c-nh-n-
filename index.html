@@ -1005,7 +1005,7 @@ function filteredOrders() {
   const q = $('oSearch').value.trim().toLowerCase();
   const st = $('oStatus').value, wh = $('oWarehouse').value, se = $('oSender').value;
   return S.orders.filter(inArea).filter(o => {
-    if (q && !`${o.customer} ${o.code} ${o.note} ${o.sender} ${o.warehouse} ${o.toWarehouse} ${o.customerSap} ${o.codeSap}`.toLowerCase().includes(q)) return false;
+    if (q && !`${o.customer} ${o.code} ${o.note} ${o.sender} ${o.warehouse} ${o.toWarehouse} ${o.customerSap} ${o.codeSap} ${o.lot || ''}`.toLowerCase().includes(q)) return false;
     if (st === 'open' && !orderOpen(o)) return false;
     if (st && st !== 'open' && o.status !== st) return false;
     if (wh && o.warehouse !== wh) return false;
@@ -1069,7 +1069,7 @@ function pickupHtml(o) {
 function orderLineHtml(o) {
   const c = colorOf(ORDER_STATUSES, o.status);
   return `<div class="order-line" style="--lc:${c}" onclick="event.stopPropagation();S.selecting ? toggleSel(this.closest('.order-card').dataset.key) : openOrder('${esc(o.id)}')">
-    <span><b>${esc(o.code)}</b>${o.codeSap && o.codeSap !== o.code ? ` <span class="t-sub">· SAP ${esc(o.codeSap)}</span>` : ''}</span>
+    <span><b>${esc(o.code)}</b>${o.codeSap && o.codeSap !== o.code ? ` <span class="t-sub">· SAP ${esc(o.codeSap)}</span>` : ''}${o.lot ? ` <span class="t-sub">· Lô ${esc(o.lot)}</span>` : ''}</span>
     <span class="qty">${fmtQty(o.qty)} ${esc(o.unit)}${convText(o) ? `<span class="conv">≈ ${convText(o)}</span>` : ''}</span>
     <div class="sub"><span style="color:${c}">● ${esc(o.status)} · đã lấy ${fmtQty(o.picked)}/${fmtQty(o.qty)}</span>
       ${orderOpen(o) ? `<button class="pick" onclick="event.stopPropagation();markPicked(['${esc(o.id)}'])">✓ Lấy đủ</button>` : ''}</div>
