@@ -164,6 +164,7 @@ tbody tr:hover{background:var(--surface-2)}
 .pg-lines{margin-top:10px}
 .pg-cols{display:grid;grid-template-columns:1.5fr 1fr 1.2fr 1fr 38px;gap:6px;padding:8px 9px 4px;font-size:12px;font-weight:600;color:var(--muted)}
 .pg-lines .parsed-row{grid-template-columns:1.5fr 1fr 1.2fr 1fr auto;margin-bottom:6px;padding:6px 8px;background:var(--surface)}
+.pl-hint{grid-area:auto;grid-column:1/-1;font-size:12px;color:#b45309}
 .pg-add{color:var(--primary);font-weight:600;font-size:13px;padding:4px 0}
 .pg-foot{display:grid;grid-template-columns:1fr 2.5fr;gap:8px;margin-top:8px;padding-top:10px;border-top:1px dashed var(--border)}
 .paste-opts select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;outline:none;width:100%}
@@ -912,6 +913,19 @@ function parseVnDate(text, base) {
   return '';
 }
 
+/* Cả đơn trên một dòng: "Quỳnh An 2020modern007 18th Mai đem về giùm em" */
+const UNITS_RE = 'm2|m²|m3|md|m|viên|v|thùng|th|hộp|cái|bộ|kg|tấn|bao|bag|bịch|gói|cuộn|tấm|cây|kiện|pallet|lít|lon';
+const INLINE_RE = new RegExp(`(^|\\s)((?=[\\w.\\/-]*[A-Za-z])[A-Za-z0-9][\\w.\\/-]*\\d[\\w.\\/-]*)\\s*[:x×]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(${UNITS_RE})(?=$|[\\s.,;!])`, 'iu');
+function inlineItem(line) {
+  const m = line.match(INLINE_RE);
+  if (!m) return null;
+  const customer = line.slice(0, m.index).trim().replace(/[:\-–,]+$/, '').trim();
+  const rest = line.slice(m.index + m[0].length).trim().replace(/^[.,;!\s]+/, '');
+  return { customer, rest, item: { code: m[2].toUpperCase(), qty: Number(m[3].replace(',', '.')), unit: m[4].toLowerCase().replace('m²', 'm2') } };
+}
+/* Tin nhờ đổi mã: "đổi giúp em thành mã 2020modern005" */
+const CHANGE_RE = /(?:^|\s)(?:đổi|sửa|chuyển|thay)(?:\s|$).*?(?:thành|sang|qua|bằng)\s+(?:mã\s+)?((?=[\w.\/-]*[A-Za-z])[A-Za-z0-9][\w.\/-]*\d[\w.\/-]*)/iu;
+
 /* Bỏ ký tự rác ở đầu dòng (ảnh đại diện khi đọc ảnh) và @nhắc tên ở cuối */
 const cleanLine = (l) => l.replace(/@[\p{L}\s]+$/u, '').replace(/^[^\p{L}\d]+/u, '').trim();
 
@@ -931,13 +945,27 @@ function parseZalo(text, base = new Date()) {
   for (const raw of text.replace(/\r/g, '').split('\n')) {
     const l = cleanLine(raw);
     if (l.length < 2 || NOISE_RE.test(l)) continue;
-    const items = parseItemLine(l);
+    const chg = l.match(CHANGE_RE);
+    if (chg && rows.length) {
+      // Đổi mã cho dòng hàng vừa đọc phía trên
+      const r = rows[rows.length - 1], nc = chg[1].toUpperCase();
+      if (nc !== r.code) { r.oldCode = r.oldCode || r.code; r.code = nc; }
+      continue;
+    }
+    let items = parseItemLine(l), inline = null;
+    if (!items && (inline = inlineItem(l))) items = [inline.item];
     if (items) {
-      if (buffer.length || !group.length) {
+      if (inline && inline.customer) {
+        if (group.length) addNote(group, buffer.join('. '));
+        else buffer.forEach(b => { sender = senderOf(b) || sender; });
+        buffer = [];
+        group = [];
+        group.customer = inline.customer;
+      } else if (buffer.length || !group.length) {
         // Bắt đầu đơn mới: dòng chữ cuối cùng phía trên là tên khách
         const customer = buffer.pop() || (group[0] && group[0].customer) || '';
         if (group.length) addNote(group, buffer.join('. '));
-        else buffer.forEach(b => { sender = sender || senderOf(b); });
+        else buffer.forEach(b => { sender = senderOf(b) || sender; });
         buffer = [];
         group = [];
         group.customer = customer;
@@ -945,6 +973,7 @@ function parseZalo(text, base = new Date()) {
       items.forEach(it => {
         const r = { customer: group.customer, code: it.code, qty: it.qty, unit: it.unit, extraV: it.extraV, pickupDate: '', note: '' };
         if (pending) { r.pickupDate = pending.date; r.note = pending.note; }
+        if (inline && inline.rest) { r.pickupDate = parseVnDate(inline.rest, base) || r.pickupDate; r.note = [r.note, inline.rest].filter(Boolean).join('. '); }
         rows.push(r); group.push(r);
       });
       pending = null;
@@ -964,6 +993,7 @@ function parseZalo(text, base = new Date()) {
     // Dòng cuối ngắn kiểu tên riêng thường là tên khách của tin bị cắt, bỏ qua
     const last = buffer[buffer.length - 1];
     if (last && last.split(/\s+/).length <= 4 && /^\p{Lu}/u.test(last) && !/\d/.test(last)) buffer.pop();
+    buffer = buffer.filter(b => b.length > 3); // mẩu chữ rác khi đọc ảnh
     addNote(group, buffer.join('. '));
     if (pending) group.forEach(r => { if (!r.pickupDate) r.pickupDate = pending.date; });
   }
@@ -1200,6 +1230,8 @@ function parsedLineHtml(r) {
       <input data-k="codeSap" value="${esc(r.codeSap ?? sapOf('code', r.code, 'codeSap'))}" placeholder="Mã hàng SAP">
       <div class="qty-unit"><input data-k="qty" type="number" step="any" value="${r.qty}" placeholder="SL"><input data-k="unit" value="${esc(r.unit || sapOf('code', r.code, 'unit'))}" placeholder="ĐVT"></div>
       <input data-k="lot" value="${esc(r.lot || '')}" placeholder="Lô">
+      ${r.replaceId ? `<input type="hidden" data-k="replaceId" value="${esc(r.replaceId)}">` : ''}
+      ${r.oldCode ? `<div class="pl-hint">🔁 Đổi từ mã ${esc(r.oldCode)}${r.replaceId ? ' · sẽ sửa đơn cũ đã lưu, không tạo đơn mới' : ''}</div>` : ''}
       <button type="button" class="icon-btn" title="Bỏ mã này" onclick="this.parentElement.remove()">✕</button>
     </div>`;
 }
@@ -1207,6 +1239,12 @@ function parsedLineHtml(r) {
 function parsedGroupHtml(g) {
   const wh = $('pasteWarehouse').value.trim(), toWh = $('pasteToWarehouse').value.trim();
   // Chưa biết số viên/thùng: phần viên lẻ hiện thành một dòng riêng cùng mã
+  // Dòng được nhờ đổi mã: nếu đơn cũ (khách + mã cũ) đang chưa lấy thì sửa đơn đó thay vì tạo đơn mới
+  g.lines.forEach(r => {
+    if (!r.oldCode || r.replaceId) return;
+    const old = S.orders.find(o => orderOpen(o) && sameKey(o.customer, g.customer) && sameKey(o.code, r.oldCode));
+    if (old) r.replaceId = old.id;
+  });
   g.lines = g.lines.flatMap(r => { normExtraV(r); const x = r.extraLine; delete r.extraLine; return x ? [r, x] : [r]; });
   const notes = [...new Set([g.note, ...g.lines.map(l => l.note)].filter(Boolean))].join('. ');
   return `<div class="pgroup">
@@ -1291,6 +1329,14 @@ async function saveParsed() {
       const o = { ...head, createdAt, picked: 0, status: 'Chưa lấy', area: $('pasteArea').value, orderNo };
       el.querySelectorAll('[data-k]').forEach(inp => o[inp.dataset.k] = inp.value.trim());
       o.qty = Number(o.qty) || 0;
+      if (o.replaceId) {
+        // Giữ mã đơn, ngày đặt, số đã lấy của đơn cũ
+        const old = S.orders.find(x => x.id === o.replaceId) || {};
+        Object.assign(o, { id: o.replaceId, orderNo: old.orderNo || o.orderNo, createdAt: old.createdAt || o.createdAt, picked: old.picked || 0 });
+        o.note = [o.note, `đổi từ mã ${old.code}`].filter(Boolean).join('. ');
+        o.status = calcOrderStatus(o);
+      }
+      delete o.replaceId;
       o.area = areaOf(o);
       if (!bad && (!o.customer || !o.code)) bad = `Đơn ${gi + 1} thiếu khách hàng hoặc mã hàng`;
       rows.push(o);
@@ -1302,15 +1348,16 @@ async function saveParsed() {
   // Cảnh báo khi dòng giống hệt một đơn chưa lấy đã lưu (dán trùng tin)
   const key = (o) => [o.customer, o.code, Number(o.qty), o.pickupDate || ''].join('|').toLowerCase();
   const existing = new Set(S.orders.filter(orderOpen).map(key));
-  const dup = rows.filter(o => existing.has(key(o)));
+  const dup = rows.filter(o => !o.id && existing.has(key(o)));
   if (dup.length && !confirm(`${dup.length} dòng đã có rồi (${dup.map(o => o.customer + ' · ' + o.code).join(', ')}).\nVẫn lưu thêm?`)) return;
   try { localStorage.setItem('lastSender', rows[rows.length - 1].sender || ''); localStorage.setItem('lastWarehouse', $('pasteWarehouse').value.trim()); localStorage.setItem('lastToWarehouse', $('pasteToWarehouse').value.trim()); } catch (e) {}
   const btn = $('btnSaveParsed'); btn.disabled = true; btn.textContent = 'Đang lưu...';
   try {
     const saved = await api('saveOrders', rows);
-    S.orders.push(...saved);
+    saved.forEach(sv => { const i = S.orders.findIndex(x => x.id === sv.id); if (i >= 0) S.orders[i] = sv; else S.orders.push(sv); });
     rememberCatalog(saved);
-    closePaste(); render(); toast(`Đã lưu ${nOrders} đơn, ${saved.length} mã hàng`);
+    const changed = rows.filter(o => o.id).length;
+    closePaste(); render(); toast(`Đã lưu ${nOrders} đơn, ${saved.length} mã hàng${changed ? ` (sửa ${changed} đơn cũ)` : ''}`);
   } catch (e) { toast(e, true); }
   btn.disabled = false; btn.textContent = 'Lưu đơn hàng';
 }
