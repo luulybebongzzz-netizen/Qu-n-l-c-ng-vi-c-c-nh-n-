@@ -1189,7 +1189,7 @@ function normExtraV(r) {
     // "10 thùng 5 viên": đổi ra tổng số viên nếu biết số viên/thùng, không thì ghi chú lại
     const { perBox } = convOf(r);
     if (perBox) { r.qty = r.qty * perBox + r.extraV; r.unit = 'viên'; }
-    else r.lineNote = `+ ${r.extraV} viên`;
+    else r.extraLine = { ...r, qty: r.extraV, unit: 'viên', extraV: 0 };
     delete r.extraV;
   }
 }
@@ -1206,8 +1206,9 @@ function parsedLineHtml(r) {
 
 function parsedGroupHtml(g) {
   const wh = $('pasteWarehouse').value.trim(), toWh = $('pasteToWarehouse').value.trim();
-  g.lines.forEach(normExtraV);
-  const notes = [...new Set([g.note, ...g.lines.map(l => l.note), ...g.lines.map(l => l.lineNote && `${l.code} ${l.lineNote}`)].filter(Boolean))].join('. ');
+  // Chưa biết số viên/thùng: phần viên lẻ hiện thành một dòng riêng cùng mã
+  g.lines = g.lines.flatMap(r => { normExtraV(r); const x = r.extraLine; delete r.extraLine; return x ? [r, x] : [r]; });
+  const notes = [...new Set([g.note, ...g.lines.map(l => l.note)].filter(Boolean))].join('. ');
   return `<div class="pgroup">
     <div class="pg-head">
       <div class="field pg-cust"><label>Khách hàng</label><input data-k="customer" list="dlCustomers" value="${esc(g.customer)}" placeholder="Tên khách" onchange="fillSap(this.closest('.pg-head'))"></div>
