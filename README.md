@@ -4,7 +4,7 @@
 
 **CongViec**: ID · Tiêu đề · Mô tả · Trạng thái · Ưu tiên · Người phụ trách · Ngày bắt đầu · Hạn chót · Nhãn · Tiến độ (%) · Người tạo · Ngày tạo · Cập nhật lúc · Khu vực
 
-**DonHang**: ID · Ngày nhận đơn · Khách hàng · Mã hàng · SL đặt · ĐVT · Kho (lấy hàng) · Ngày nhận dự kiến · Người gửi · Ghi chú · SL đã lấy · Trạng thái · Cập nhật lúc · Kho nhận hàng · Mã KH SAP · Mã hàng SAP · Khu vực · Mã đơn (app tự điền lại mã SAP đã dùng cho cùng khách / cùng mã hàng) (mỗi dòng là một mã hàng của một đơn)
+**DonHang**: ID · Ngày nhận đơn · Khách hàng · Mã hàng · SL đặt · ĐVT · Kho (lấy hàng) · Ngày nhận dự kiến · Người gửi · Ghi chú · SL đã lấy · Trạng thái · Cập nhật lúc · Kho nhận hàng · Mã KH SAP · Mã hàng SAP · Khu vực · Mã đơn · Lô (app tự điền lại mã SAP đã dùng cho cùng khách / cùng mã hàng) (mỗi dòng là một mã hàng của một đơn)
 
 **KhachHang**: Khách hàng · Mã KH SAP · Kho nhận mặc định · Cập nhật lúc
 **MaHang**: Mã hàng · Mã hàng SAP · ĐVT · Viên/thùng · m²/thùng · Cập nhật lúc
@@ -23,6 +23,9 @@
 - Lọc theo từ khoá, trạng thái, ưu tiên, người phụ trách, hạn chót (quá hạn / hôm nay / 7 ngày tới).
 - Thêm, sửa, xoá công việc; tiến độ %, nhãn, ngày bắt đầu, hạn chót; tô màu việc trễ hạn.
 - Đơn hàng: dán tin Zalo (ví dụ "Quỳnh An / 2080banyan002 20m / thứ 2 tuần sau khách nhận"), app tự tách khách hàng, mã hàng, số lượng, ngày nhận; xem trước, sửa, thêm dòng rồi lưu. Có nút thêm đơn tay. Đơn được nhóm theo Quá hẹn / Hôm nay / Ngày mai / Sắp nhận, bấm "Khách đã lấy đủ" để đóng đơn.
+- Thùng / viên: điền "m²/thùng" và "Viên/thùng" cho mã hàng (trong đơn hoặc sheet MaHang), app tự đổi m² ra thùng + viên (làm tròn lên đủ viên). Khi nhập tay có thể gõ thẳng số thùng và số viên. Tin Zalo dạng "10 thùng 5 viên" cũng tách được.
+- Xuất EX: nút "⬇ Xuất EX" trên từng đơn tải file Excel theo mẫu EX (Nơi lấy hàng · Mã SAP · Mã Hàng · Số lượng TH / V · Lô · Khách hàng). Nút "☑ Chọn đơn xuất EX" để chọn nhiều đơn, "Gộp thành 1 đơn lớn" cộng các dòng cùng kho lấy + mã hàng + lô.
+- Báo cáo tháng: chọn tháng rồi bấm "📊 Báo cáo tháng", tải file Excel gồm Tổng hợp (theo khu vực), Theo khách (khách + mã hàng: đặt, đã lấy, còn lại, %), Chi tiết và EX. Theo khu vực đang chọn ở trên cùng.
 - Khu vực: nút Tất cả / KV 27 / KV 23 trên cùng lọc toàn bộ app; đơn hàng tự xếp theo kho nhận hàng (1121 → KV 27, kho khác → KV 23, sửa danh sách ở AREA_27_WAREHOUSES trong Index.html); công việc tự gán khu vực đang chọn, dữ liệu chưa gán khu vực hiện ở mọi khu vực.
 - Giao diện tối, nhớ màn hình đang xem.
 

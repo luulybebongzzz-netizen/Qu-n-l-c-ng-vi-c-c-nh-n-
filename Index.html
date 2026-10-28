@@ -119,7 +119,7 @@ tbody tr:hover{background:var(--surface-2)}
 .modal-body{padding:18px 20px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .modal-foot{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border)}
 .modal-foot .spacer{flex:1}
-.field{display:flex;flex-direction:column;gap:6px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .field.full{grid-column:1/-1}
 .field label{font-size:13px;font-weight:600;color:var(--muted)}
 .field textarea{min-height:90px;resize:vertical}
@@ -164,7 +164,16 @@ tbody tr:hover{background:var(--surface-2)}
 .order-line .qty{font-weight:600;text-align:right;white-space:nowrap}
 .order-line .sub{grid-column:1/-1;display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
 .order-line .pick{color:var(--primary);font-weight:600;font-size:12px}
-.card-actions{display:flex;justify-content:space-between;gap:8px;margin-top:10px}
+.card-actions{display:flex;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap}
+.order-line .conv{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+.order-card .sel{width:20px;height:20px;accent-color:var(--primary);flex:none}
+.order-card.selected{outline:2px solid var(--primary);outline-offset:-2px}
+.sel-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:22;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:10px 14px;box-shadow:0 10px 30px rgba(0,0,0,.18);max-width:calc(100% - 32px)}
+.month-pick{display:flex;gap:6px;align-items:center}
+.month-pick input{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 10px;color:inherit}
+.pair{display:flex;gap:6px}
+.pair input{flex:1;min-width:0}
+.box-hint{font-size:12px;color:var(--muted);margin-top:4px}
 .modal-body.block{display:block}
 .modal-body.block > * + *{margin-top:12px}
 
@@ -195,6 +204,8 @@ tbody tr:hover{background:var(--surface-2)}
   .parsed-row .icon-btn{grid-column:2;justify-self:end}
   #topAddManual{display:none!important}
   .mobile-only{display:inline-flex}
+  .sel-bar{bottom:calc(var(--nav-h) + 12px + env(safe-area-inset-bottom));left:12px;right:12px;transform:none;max-width:none}
+  .sel-bar .btn{flex:1 1 40%}
   .bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--surface);border-top:1px solid var(--border);z-index:20}
   .bottom-nav .nav-btn{flex-direction:column;gap:3px;justify-content:center;font-size:11px;border-radius:0;padding:6px 0}
   .bottom-nav .nav-btn.active{background:transparent}
@@ -202,7 +213,7 @@ tbody tr:hover{background:var(--surface-2)}
   .fab svg{width:26px;height:26px}
   .overlay{padding:0;align-items:flex-end}
   .modal{max-width:none;border-radius:18px 18px 0 0;max-height:94vh}
-  .modal-body{grid-template-columns:1fr}
+  .modal-body{grid-template-columns:minmax(0,1fr)}
   .modal-foot{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
   .toast{bottom:calc(var(--nav-h) + 16px)}
 }
@@ -261,6 +272,8 @@ tbody tr:hover{background:var(--surface-2)}
         </select>
         <select id="oWarehouse" onchange="render()"></select>
         <select id="oSender" onchange="render()"></select>
+        <button class="btn btn-ghost" id="btnSelect" onclick="toggleSelecting()">☑ Chọn đơn xuất EX</button>
+        <div class="month-pick"><input type="month" id="oMonth" title="Tháng báo cáo"><button class="btn btn-ghost" onclick="exportMonth()">📊 Báo cáo tháng</button></div>
         <button class="btn btn-ghost mobile-only" onclick="openOrder()">+ Thêm đơn tay</button>
       </div>
 
@@ -350,8 +363,11 @@ tbody tr:hover{background:var(--surface-2)}
       <div class="field"><label>Mã hàng SAP</label><input name="codeSap" placeholder="Mã vật tư (Material)"></div>
       <div class="field"><label>Kho lấy hàng</label><input name="warehouse" list="dlWarehouses"></div>
       <div class="field"><label>Kho nhận hàng</label><input name="toWarehouse" list="dlToWarehouses" onchange="this.form.area.value = areaOf({ toWarehouse: this.value, area: this.form.area.value })"></div>
-      <div class="field"><label>SL đặt *</label><input name="qty" type="number" step="any" required></div>
-      <div class="field"><label>Đơn vị tính</label><input name="unit" placeholder="m2, viên, thùng..."></div>
+      <div class="field"><label>SL đặt *</label><input name="qty" type="number" step="any" required oninput="syncBoxes(this.form)"><div class="box-hint" id="boxHint"></div></div>
+      <div class="field"><label>Đơn vị tính</label><input name="unit" placeholder="m2, viên, thùng..." oninput="syncBoxes(this.form)"></div>
+      <div class="field"><label>Hoặc nhập theo thùng / viên</label><div class="pair"><input name="boxTh" type="number" step="1" min="0" placeholder="Thùng" oninput="boxesToQty(this.form)"><input name="boxV" type="number" step="1" min="0" placeholder="Viên" oninput="boxesToQty(this.form)"></div></div>
+      <div class="field"><label>Quy đổi của mã này (nhớ cho lần sau)</label><div class="pair"><input name="m2PerBox" type="number" step="any" min="0" placeholder="m² / thùng" oninput="syncBoxes(this.form)"><input name="perBox" type="number" step="1" min="0" placeholder="Viên / thùng" oninput="syncBoxes(this.form)"></div></div>
+      <div class="field"><label>Lô</label><input name="lot" placeholder="Số lô (nếu có)"></div>
       <div class="field"><label>Ngày đặt</label><input name="createdAt" type="date"></div>
       <div class="field"><label>Ngày khách nhận</label><input name="pickupDate" type="date"></div>
       <div class="field"><label>Người gửi đơn</label><input name="sender" list="dlSenders"></div>
@@ -455,7 +471,7 @@ const Demo = {
 };
 
 /* ---------- Trạng thái ---------- */
-const S = { tasks: [], orders: [], customers: [], items: [], area: '', members: [], statuses: [], priorities: [], view: 'dashboard' };
+const S = { tasks: [], orders: [], customers: [], items: [], area: '', selecting: false, sel: new Set(), members: [], statuses: [], priorities: [], view: 'dashboard' };
 const VIEWS = [
   { id: 'dashboard', label: 'Tổng quan', icon: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>' },
   { id: 'list', label: 'Danh sách', icon: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>' },
@@ -814,7 +830,7 @@ function calcOrderStatus(o) {
 /* Tách tin Zalo thành các dòng đơn hàng.
  * Mỗi đoạn (cách nhau dòng trống) là một tin: dòng chữ đầu là khách hàng,
  * dòng "mã số_lượng đơn_vị" là hàng, câu có ngày (thứ 2 tuần sau, mai, 05/11...) là ngày nhận. */
-const ITEM_RE = /^([A-Za-z0-9][\w.\/-]*\d[\w.\/-]*|[A-Za-z][\w.\/-]*[A-Za-z]\d*)\s*[:x×\-]?\s*(\d+(?:[.,]\d+)?)\s*(m2|m²|m3|md|m|viên|v|thùng|th|hộp|cái|bộ|kg|tấn|bao|cuộn|tấm|cây|kiện|pallet|lít|lon)?\.?$/i;
+const ITEM_RE = /^([A-Za-z0-9][\w.\/-]*\d[\w.\/-]*|[A-Za-z][\w.\/-]*[A-Za-z]\d*)\s*[:x×\-]?\s*(\d+(?:[.,]\d+)?)\s*(m2|m²|m3|md|m|viên|v|thùng|th|hộp|cái|bộ|kg|tấn|bao|cuộn|tấm|cây|kiện|pallet|lít|lon)?(?:\s*\+?\s*(\d+)\s*(viên|v))?\.?$/i;
 const NOISE_RE = /^(\d{1,2}:\d{2}.*|hôm nay|hôm qua|đã xem|đã nhận|đã gửi)$/i;
 
 function parseItemLine(line) {
@@ -823,7 +839,9 @@ function parseItemLine(line) {
     const m = part.trim().match(ITEM_RE);
     if (m && /^\d{1,2}[\/.-]\d{1,2}([\/.-]\d{0,4})?$/.test(part.trim())) return null; // 05/11 là ngày, không phải mã hàng
     if (!m || !/\d/.test(m[1]) && !m[3]) return null;
-    out.push({ code: m[1].toUpperCase(), qty: Number(m[2].replace(',', '.')), unit: (m[3] || '').toLowerCase().replace('m²', 'm2') });
+    const it = { code: m[1].toUpperCase(), qty: Number(m[2].replace(',', '.')), unit: (m[3] || '').toLowerCase().replace('m²', 'm2') };
+    if (m[4]) { it.unit = 'thùng'; it.extraV = Number(m[4]); } // "10 thùng 5 viên"
+    out.push(it);
   }
   return out.length ? out : null;
 }
@@ -888,7 +906,7 @@ function parseZalo(text, base = new Date()) {
         group.customer = customer;
       }
       items.forEach(it => {
-        const r = { customer: group.customer, code: it.code, qty: it.qty, unit: it.unit, pickupDate: '', note: '' };
+        const r = { customer: group.customer, code: it.code, qty: it.qty, unit: it.unit, extraV: it.extraV, pickupDate: '', note: '' };
         if (pending) { r.pickupDate = pending.date; r.note = pending.note; }
         rows.push(r); group.push(r);
       });
@@ -983,9 +1001,9 @@ function pickupHtml(o) {
 
 function orderLineHtml(o) {
   const c = colorOf(ORDER_STATUSES, o.status);
-  return `<div class="order-line" style="--lc:${c}" onclick="event.stopPropagation();openOrder('${esc(o.id)}')">
+  return `<div class="order-line" style="--lc:${c}" onclick="event.stopPropagation();S.selecting ? toggleSel(this.closest('.order-card').dataset.key) : openOrder('${esc(o.id)}')">
     <span><b>${esc(o.code)}</b>${o.codeSap && o.codeSap !== o.code ? ` <span class="t-sub">· SAP ${esc(o.codeSap)}</span>` : ''}</span>
-    <span class="qty">${fmtQty(o.qty)} ${esc(o.unit)}</span>
+    <span class="qty">${fmtQty(o.qty)} ${esc(o.unit)}${convText(o) ? `<span class="conv">≈ ${convText(o)}</span>` : ''}</span>
     <div class="sub"><span style="color:${c}">● ${esc(o.status)} · đã lấy ${fmtQty(o.picked)}/${fmtQty(o.qty)}</span>
       ${orderOpen(o) ? `<button class="pick" onclick="event.stopPropagation();markPicked(['${esc(o.id)}'])">✓ Lấy đủ</button>` : ''}</div>
   </div>`;
@@ -996,8 +1014,9 @@ function orderCardHtml(g) {
   const c = colorOf(ORDER_STATUSES, g.status);
   const openIds = g.lines.filter(orderOpen).map(o => `'${esc(o.id)}'`).join(',');
   const notes = [...new Set(g.lines.map(o => o.note).filter(Boolean))].join(' · ');
-  return `<div class="task-card order-card" style="--prio:${c}" onclick="openOrder('${esc(f.id)}')">
-    <div class="row" style="margin-top:0"><div class="title">${areaTag(f)}${esc(g.customer)}</div>${badge(ORDER_STATUSES, g.status)}</div>
+  const sel = S.selecting, on = sel && S.sel.has(g.key);
+  return `<div class="task-card order-card${on ? ' selected' : ''}" style="--prio:${c}" data-key="${esc(g.key)}" onclick="${sel ? 'toggleSel(this.dataset.key)' : `openOrder('${esc(f.id)}')`}">
+    <div class="row" style="margin-top:0">${sel ? `<input type="checkbox" class="sel" ${on ? 'checked' : ''} onclick="event.stopPropagation();toggleSel(this.closest('.order-card').dataset.key)">` : ''}<div class="title">${areaTag(f)}${esc(g.customer)}</div>${badge(ORDER_STATUSES, g.status)}</div>
     ${f.customerSap ? `<div class="t-sub">KH SAP: ${esc(f.customerSap)}</div>` : ''}
     <div class="order-lines">${g.lines.map(orderLineHtml).join('')}</div>
     <div class="row">${pickupHtml(g)}<span class="t-sub">${f.createdAt ? 'Đặt ' + fmtDate(f.createdAt) : ''}${f.sender ? ' · ' + esc(f.sender) : ''}</span></div>
@@ -1005,6 +1024,7 @@ function orderCardHtml(g) {
     ${notes ? `<div class="t-sub" style="margin-top:6px">${esc(notes)}</div>` : ''}
     <div class="card-actions">
       <button class="move-btn" style="display:inline-block" onclick="event.stopPropagation();addLineTo('${esc(f.id)}')">+ Thêm mã</button>
+      <button class="move-btn" style="display:inline-block" onclick="event.stopPropagation();exportGroup(this.closest('.order-card').dataset.key)">⬇ Xuất EX</button>
       ${openIds ? `<button class="move-btn" style="display:inline-block" onclick="event.stopPropagation();markPicked([${openIds}])">✓ Khách đã lấy đủ cả đơn</button>` : ''}
     </div>
   </div>`;
@@ -1052,7 +1072,13 @@ function renderOrders() {
   $('view').innerHTML = stats + (groups.length ? groups.map(g => `
     <div class="group-head">${g.title}<span class="count">${g.items.length}</span></div>
     <div class="order-grid">${g.items.map(orderCardHtml).join('')}</div>`).join('')
-    : `<div class="empty">Chưa có đơn hàng nào phù hợp.<br><br><button class="btn btn-primary" onclick="openPaste()">Dán đơn Zalo</button></div>`);
+    : `<div class="empty">Chưa có đơn hàng nào phù hợp.<br><br><button class="btn btn-primary" onclick="openPaste()">Dán đơn Zalo</button></div>`)
+    + (S.selecting ? `<div class="sel-bar"><b>Đã chọn ${S.sel.size} đơn</b>
+      <button class="btn btn-primary" onclick="exportSelected(true)" ${S.sel.size ? '' : 'disabled'}>Gộp thành 1 đơn lớn → EX</button>
+      <button class="btn btn-ghost" onclick="exportSelected(false)" ${S.sel.size ? '' : 'disabled'}>Xuất từng dòng</button>
+      <button class="btn btn-ghost" onclick="toggleSelecting()">Thôi</button></div><div style="height:90px"></div>` : '');
+  $('btnSelect').textContent = S.selecting ? '✕ Thôi chọn' : '☑ Chọn đơn xuất EX';
+  if (!$('oMonth').value) $('oMonth').value = todayStr().slice(0, 7);
 }
 
 /* Dán tin Zalo */
@@ -1092,10 +1118,11 @@ function sapOf(keyField, keyVal, field) {
 /* Tự điền mã SAP, kho nhận, ĐVT khi gõ khách hàng / mã hàng (chỉ điền ô đang trống) */
 function fillSap(scope) {
   const get = (k) => scope.querySelector(`[data-k="${k}"], [name="${k}"]`);
-  [['customer', 'customerSap'], ['customer', 'toWarehouse'], ['code', 'codeSap'], ['code', 'unit']].forEach(([k, f]) => {
+  [['customer', 'customerSap'], ['customer', 'toWarehouse'], ['code', 'codeSap'], ['code', 'unit'], ['code', 'perBox'], ['code', 'm2PerBox']].forEach(([k, f]) => {
     const inp = get(f);
-    if (inp && !inp.value) inp.value = sapOf(k, get(k).value, f);
+    if (inp && !inp.value) inp.value = sapOf(k, get(k).value, f) || '';
   });
+  if (scope.elements && scope.elements.boxTh) syncBoxes(scope);
 }
 
 /* Cập nhật danh mục trong máy sau khi lưu (máy chủ cũng tự cập nhật sheet) */
@@ -1105,12 +1132,19 @@ function rememberCatalog(orders) {
     if (c) { if (o.customerSap) c.customerSap = o.customerSap; if (o.toWarehouse) c.toWarehouse = o.toWarehouse; }
     else if (o.customer) S.customers.push({ name: o.customer, customerSap: o.customerSap || '', toWarehouse: o.toWarehouse || '' });
     const it = catalogOf('code', o.code);
-    if (it) { if (o.codeSap) it.codeSap = o.codeSap; if (o.unit) it.unit = o.unit; }
-    else if (o.code) S.items.push({ code: o.code, codeSap: o.codeSap || '', unit: o.unit || '' });
+    if (it) { if (o.codeSap) it.codeSap = o.codeSap; if (o.unit) it.unit = o.unit; if (o.perBox) it.perBox = Number(o.perBox); if (o.m2PerBox) it.m2PerBox = Number(o.m2PerBox); }
+    else if (o.code) S.items.push({ code: o.code, codeSap: o.codeSap || '', unit: o.unit || '', perBox: Number(o.perBox) || 0, m2PerBox: Number(o.m2PerBox) || 0 });
   });
 }
 
 function parsedRowHtml(r) {
+  if (r.extraV) {
+    // "10 thùng 5 viên": đổi ra tổng số viên nếu biết số viên/thùng, không thì ghi chú lại
+    const { perBox } = convOf(r);
+    if (perBox) { r.qty = r.qty * perBox + r.extraV; r.unit = 'viên'; }
+    else r.note = [r.note, `+ ${r.extraV} viên`].filter(Boolean).join('. ');
+    delete r.extraV;
+  }
   const wh = $('pasteWarehouse').value.trim(), toWh = $('pasteToWarehouse').value.trim();
   return `<div class="parsed-row">
       <input data-k="customer" list="dlCustomers" value="${esc(r.customer)}" placeholder="Khách hàng" onchange="fillSap(this.parentElement)">
@@ -1191,7 +1225,11 @@ function openOrder(id, prefill) {
   let last = {};
   try { last = { sender: localStorage.getItem('lastSender') || '', warehouse: localStorage.getItem('lastWarehouse') || '', toWarehouse: localStorage.getItem('lastToWarehouse') || '' }; } catch (e) {}
   const data = o || { ...last, area: S.area, qty: '', picked: 0, status: 'Chưa lấy', createdAt: todayStr(), ...prefill };
-  ['id', 'orderNo', 'customer', 'code', 'qty', 'unit', 'warehouse', 'toWarehouse', 'customerSap', 'codeSap', 'area', 'pickupDate', 'sender', 'note', 'picked', 'createdAt'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
+  ['id', 'orderNo', 'customer', 'code', 'qty', 'unit', 'warehouse', 'toWarehouse', 'customerSap', 'codeSap', 'area', 'pickupDate', 'sender', 'note', 'picked', 'createdAt', 'lot'].forEach(k => { if (f.elements[k]) f.elements[k].value = data[k] ?? ''; });
+  const cv = convOf(data);
+  f.elements.perBox.value = cv.perBox || '';
+  f.elements.m2PerBox.value = cv.m2PerBox || '';
+  syncBoxes(f);
   f.elements.area.value = areaOf(data);
   f.elements.cancelled.checked = data.status === 'Huỷ';
   $('orderMeta').textContent = o ? `Mã: ${o.id}${o.orderNo ? ' · Đơn ' + o.orderNo : ''}${o.updatedAt ? ' · Cập nhật ' + o.updatedAt.replace('T', ' ') : ''}` : '';
@@ -1221,16 +1259,17 @@ async function submitOrder(e) {
   const f = $('orderForm');
   const o = Object.fromEntries(new FormData(f).entries());
   o.qty = Number(o.qty) || 0; o.picked = Number(o.picked) || 0;
+  o.perBox = Number(o.perBox) || 0; o.m2PerBox = Number(o.m2PerBox) || 0;
   o.area = areaOf(o);
   o.status = f.elements.cancelled.checked ? 'Huỷ' : '';
   o.status = calcOrderStatus(o);
-  delete o.cancelled;
+  delete o.cancelled; delete o.boxTh; delete o.boxV;
   if (!o.orderNo) o.orderNo = 'DH' + String(o.createdAt || todayStr()).slice(2).replace(/-/g, '') + '-' + Date.now().toString(36).slice(-4).toUpperCase();
   try {
     const [saved] = await api('saveOrders', [o]);
     const i = S.orders.findIndex(x => x.id === saved.id);
     if (i >= 0) S.orders[i] = saved; else S.orders.push(saved);
-    rememberCatalog([saved]);
+    rememberCatalog([{ ...saved, perBox: o.perBox, m2PerBox: o.m2PerBox }]);
     closeOrder(); render(); toast('Đã lưu đơn hàng');
   } catch (err) { toast(err, true); }
 }
@@ -1256,6 +1295,214 @@ async function removeOrder() {
     S.orders = S.orders.filter(x => x.id !== id);
     closeOrder(); render(); toast('Đã xoá');
   } catch (e) { toast(e, true); }
+}
+
+/* ---------- Quy đổi m² / thùng / viên ----------
+ * Theo sheet MaHang: "Viên/thùng" và "m²/thùng" của từng mã hàng. */
+const unitKind = (u) => {
+  u = String(u || '').trim().toLowerCase();
+  if (/^(m2|m²|m)$/.test(u)) return 'm2'; // "20m" trong tin Zalo là 20 m²
+  if (/^(thùng|th)$/.test(u)) return 'box';
+  if (/^(viên|v)$/.test(u)) return 'pcs';
+  return '';
+};
+function convOf(o) {
+  const it = catalogOf('code', o.code) || {};
+  return { perBox: Number(o.perBox || it.perBox) || 0, m2PerBox: Number(o.m2PerBox || it.m2PerBox) || 0 };
+}
+/* Số lượng (theo ĐVT) → { th, v }; m² lẻ làm tròn lên đủ viên. Không đủ thông tin quy đổi thì trả null */
+function toBoxes(qty, unit, { perBox, m2PerBox }) {
+  const q = Number(qty) || 0, k = unitKind(unit);
+  let boxes;
+  if (k === 'box') boxes = q;
+  else if (k === 'pcs') { if (!perBox) return { th: 0, v: q }; boxes = q / perBox; }
+  else if (k === 'm2' && m2PerBox) boxes = q / m2PerBox;
+  else return null;
+  if (!perBox) return { th: Math.ceil(boxes - 1e-9), v: 0 };
+  const pcs = Math.ceil(boxes * perBox - 1e-6);
+  return { th: Math.floor(pcs / perBox), v: pcs % perBox };
+}
+/* { th, v } → số lượng theo ĐVT của dòng */
+function fromBoxes(th, v, unit, { perBox, m2PerBox }) {
+  const k = unitKind(unit) || 'box';
+  if (v && !perBox) return null;
+  const boxes = th + (perBox ? v / perBox : 0);
+  if (k === 'box') return Math.round(boxes * 1000) / 1000;
+  if (k === 'pcs') return perBox ? th * perBox + v : (th ? null : v);
+  if (k === 'm2') return m2PerBox ? Math.round(boxes * m2PerBox * 1000) / 1000 : null;
+  return null;
+}
+function convText(o) {
+  const cv = convOf(o), r = toBoxes(o.qty, o.unit, cv);
+  if (!r || (unitKind(o.unit) === 'box' && !r.v) || (unitKind(o.unit) === 'pcs' && !r.th)) return '';
+  let t = `${fmtQty(r.th)} TH${r.v ? ` ${fmtQty(r.v)} V` : ''}`;
+  if (unitKind(o.unit) !== 'm2' && cv.m2PerBox && cv.perBox) t += ` · ${fmtQty((r.th + r.v / cv.perBox) * cv.m2PerBox)} m²`;
+  return t;
+}
+/* Form đơn: gõ SL/ĐVT → hiện thùng/viên; gõ thùng/viên → tự tính SL */
+function syncBoxes(f) {
+  const cv = { perBox: Number(f.perBox.value) || 0, m2PerBox: Number(f.m2PerBox.value) || 0 };
+  const r = f.qty.value !== '' ? toBoxes(f.qty.value, f.unit.value, cv) : null;
+  if (document.activeElement !== f.boxTh && document.activeElement !== f.boxV) {
+    f.boxTh.value = r ? r.th : ''; f.boxV.value = r && r.v ? r.v : '';
+  }
+  const k = unitKind(f.unit.value);
+  $('boxHint').textContent = r ? `≈ ${r.th} thùng${r.v ? ' ' + r.v + ' viên' : ''}`
+    : (f.qty.value && k === 'm2' && !cv.m2PerBox ? 'Nhập m²/thùng để đổi ra thùng' : '');
+}
+function boxesToQty(f) {
+  const th = Number(f.boxTh.value) || 0, v = Number(f.boxV.value) || 0;
+  if (!f.unit.value.trim()) f.unit.value = v && !th ? 'viên' : 'thùng';
+  const cv = { perBox: Number(f.perBox.value) || 0, m2PerBox: Number(f.m2PerBox.value) || 0 };
+  let q = fromBoxes(th, v, f.unit.value, cv);
+  if (q === null) {
+    // Chưa có quy đổi sang ĐVT đang chọn: đổi ĐVT cho khớp với cách nhập
+    f.unit.value = v && !th ? 'viên' : 'thùng';
+    q = fromBoxes(th, v, f.unit.value, cv);
+  }
+  if (q === null) { $('boxHint').textContent = 'Nhập Viên/thùng để cộng cả thùng và viên'; return; }
+  f.qty.value = q;
+  syncBoxes(f);
+}
+
+/* ---------- Xuất Excel theo mẫu EX ---------- */
+let xlsxLib = null;
+function loadXlsx() {
+  return xlsxLib || (xlsxLib = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    sc.onload = () => resolve(window.XLSX);
+    sc.onerror = () => { xlsxLib = null; reject('Không tải được bộ tạo file Excel, kiểm tra kết nối mạng'); };
+    document.head.appendChild(sc);
+  }));
+}
+
+const EX_HEAD = [['Nơi lấy hàng', 'Mã SAP', 'Mã Hàng', 'Số Lượng', '', 'Lô', 'Khách Hàng'], ['', '', '', 'TH', 'V', '', '']];
+const EX_MERGES = [0, 1, 2, 5, 6].map(c => ({ s: { r: 0, c }, e: { r: 1, c } })).concat([{ s: { r: 0, c: 3 }, e: { r: 0, c: 4 } }]);
+const exQty = (o) => toBoxes(o.qty, o.unit, convOf(o));
+
+/* Dòng EX; merge = true thì cộng các dòng cùng kho lấy + mã hàng + lô thành một */
+function exRows(lines, merge) {
+  const out = [], idx = {};
+  lines.forEach(o => {
+    const cv = convOf(o), r = exQty(o);
+    const k = [o.warehouse, o.codeSap || o.code, o.lot].join('|').toLowerCase();
+    if (merge && r && idx[k] !== undefined) {
+      const x = out[idx[k]];
+      if (!x.customers.includes(o.customer)) x.customers.push(o.customer);
+      if (cv.perBox) { const pcs = x.th * cv.perBox + x.v + r.th * cv.perBox + r.v; x.th = Math.floor(pcs / cv.perBox); x.v = pcs % cv.perBox; }
+      else { x.th += r.th; x.v += r.v; }
+      x.src.push(o);
+      return;
+    }
+    const x = { warehouse: o.warehouse, codeSap: o.codeSap, code: o.code, th: r ? r.th : '', v: r ? r.v : '', lot: o.lot || '', customers: [o.customer], src: [o], noConv: !r };
+    if (r && merge) idx[k] = out.length;
+    out.push(x);
+  });
+  return out;
+}
+
+function exSheet(X, rows) {
+  const aoa = EX_HEAD.concat(rows.map(x => [x.warehouse || '', x.codeSap || '', x.code, x.th === 0 ? '' : x.th, x.v || '', x.lot, x.customers.join(', ')]));
+  const ws = X.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = EX_MERGES;
+  ws['!cols'] = [12, 12, 30, 8, 8, 14, 45].map(w => ({ wch: w }));
+  return ws;
+}
+
+const DETAIL_HEAD = ['Ngày đặt', 'Mã đơn', 'Khu vực', 'Khách hàng', 'Mã KH SAP', 'Mã hàng', 'Mã hàng SAP', 'SL đặt', 'ĐVT', 'Thùng', 'Viên', 'SL đã lấy', 'SL còn lại', 'Trạng thái', 'Kho lấy', 'Kho nhận', 'Ngày khách nhận', 'Người gửi', 'Lô', 'Ghi chú'];
+function detailSheet(X, lines) {
+  const aoa = [DETAIL_HEAD].concat(lines.map(o => {
+    const r = exQty(o) || { th: '', v: '' };
+    return [fmtDate(o.createdAt), o.orderNo, areaOf(o) ? 'KV ' + areaOf(o) : '', o.customer, o.customerSap, o.code, o.codeSap, Number(o.qty) || 0, o.unit, r.th, r.v || '',
+      Number(o.picked) || 0, Math.max(0, (Number(o.qty) || 0) - (Number(o.picked) || 0)), o.status, o.warehouse, o.toWarehouse, fmtDate(o.pickupDate), o.sender, o.lot || '', o.note];
+  }));
+  const ws = X.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = DETAIL_HEAD.map((h, i) => ({ wch: [3, 5, 6].includes(i) ? 24 : i === 19 ? 40 : 12 }));
+  return ws;
+}
+
+async function downloadBook(name, sheets) {
+  try {
+    const X = await loadXlsx();
+    const wb = X.utils.book_new();
+    sheets(X).forEach(([n, ws]) => X.utils.book_append_sheet(wb, ws, n));
+    // Tên file không dấu để mở được trên mọi máy
+    const file = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').replace(/[^\w.-]+/g, '_');
+    X.writeFile(wb, file + '.xlsx');
+    return true;
+  } catch (e) { toast(e.message || e, true); return false; }
+}
+
+function linesOfKeys(keys) {
+  return groupOrders(S.orders).filter(g => keys.includes(g.key)).flatMap(g => g.lines).filter(o => o.status !== 'Huỷ');
+}
+
+function warnNoConv(rows) {
+  const miss = [...new Set(rows.filter(x => x.noConv).map(x => x.code))];
+  return miss.length ? ` · chưa đổi được thùng/viên cho ${miss.join(', ')} (nhập m²/thùng trong đơn)` : '';
+}
+
+async function exportGroup(key) {
+  const lines = linesOfKeys([key]);
+  if (!lines.length) return toast('Đơn này không có dòng nào để xuất', true);
+  const rows = exRows(lines, false);
+  if (await downloadBook(`EX_${lines[0].customer}_${todayStr()}`, X => [['EX', exSheet(X, rows)], ['Chi tiết', detailSheet(X, lines)]]))
+    toast('Đã tải file EX' + warnNoConv(rows));
+}
+
+function toggleSelecting() { S.selecting = !S.selecting; S.sel = new Set(); render(); }
+function toggleSel(key) { S.sel.has(key) ? S.sel.delete(key) : S.sel.add(key); render(); }
+
+async function exportSelected(merge) {
+  const lines = linesOfKeys([...S.sel]);
+  if (!lines.length) return toast('Chưa chọn đơn nào', true);
+  const rows = exRows(lines, merge);
+  const n = S.sel.size;
+  if (await downloadBook(`EX_${merge ? 'gop_' : ''}${n}don_${todayStr()}`, X => [['EX', exSheet(X, rows)], ['Chi tiết', detailSheet(X, lines)]])) {
+    toast(`Đã tải file EX: ${n} đơn, ${rows.length} dòng` + warnNoConv(rows));
+    S.selecting = false; S.sel = new Set(); render();
+  }
+}
+
+/* Báo cáo cuối tháng: theo ngày đặt trong tháng, theo khu vực đang chọn */
+async function exportMonth() {
+  const m = $('oMonth').value || todayStr().slice(0, 7);
+  const lines = S.orders.filter(inArea).filter(o => String(o.createdAt || '').startsWith(m));
+  if (!lines.length) return toast(`Tháng ${m.split('-').reverse().join('/')} chưa có đơn nào`, true);
+  const num = (x) => Number(x) || 0;
+  const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
+  const active = lines.filter(o => o.status !== 'Huỷ');
+  // Tổng hợp theo khu vực
+  const areas = [...new Set(lines.map(o => areaOf(o) || ''))].sort();
+  const sumRow = (label, ls) => {
+    const act = ls.filter(o => o.status !== 'Huỷ');
+    const q = act.reduce((s, o) => s + num(o.qty), 0), p = act.reduce((s, o) => s + Math.min(num(o.picked), num(o.qty)), 0);
+    return [label, groupOrders(ls).length, new Set(ls.map(o => o.customer)).size, ls.length,
+      ls.filter(o => o.status === 'Đã lấy đủ').length, ls.filter(o => o.status === 'Lấy một phần').length, ls.filter(o => o.status === 'Chưa lấy').length, ls.filter(o => o.status === 'Huỷ').length, pct(p, q)];
+  };
+  const summary = [[`BÁO CÁO ĐƠN HÀNG THÁNG ${m.split('-').reverse().join('/')}${S.area ? ' · KV ' + S.area : ''}`], [],
+    ['Khu vực', 'Số đơn', 'Số khách', 'Số dòng hàng', 'Đã lấy đủ', 'Lấy một phần', 'Chưa lấy', 'Huỷ', '% đã lấy (theo SL)']]
+    .concat(areas.map(a => sumRow(a ? 'KV ' + a : 'Chưa gán', lines.filter(o => (areaOf(o) || '') === a))))
+    .concat([sumRow('Tổng', lines)]);
+  // Theo khách + mã hàng
+  const map = new Map();
+  active.forEach(o => {
+    const k = [areaOf(o), o.customer, o.code, o.unit].join('|').toLowerCase();
+    if (!map.has(k)) map.set(k, { ...o, qty: 0, picked: 0, orders: new Set() });
+    const x = map.get(k); x.qty += num(o.qty); x.picked += Math.min(num(o.picked), num(o.qty)); x.orders.add(orderKey(o));
+  });
+  const byCust = [['Khu vực', 'Khách hàng', 'Mã KH SAP', 'Mã hàng', 'Mã hàng SAP', 'Số đơn', 'SL đặt', 'ĐVT', 'Thùng', 'Viên', 'SL đã lấy', 'SL còn lại', '% đã lấy']]
+    .concat([...map.values()].sort((a, b) => String(areaOf(a)).localeCompare(String(areaOf(b))) || a.customer.localeCompare(b.customer) || a.code.localeCompare(b.code)).map(x => {
+      const r = exQty(x) || { th: '', v: '' };
+      return [areaOf(x) ? 'KV ' + areaOf(x) : '', x.customer, x.customerSap, x.code, x.codeSap, x.orders.size, x.qty, x.unit, r.th, r.v || '', x.picked, Math.max(0, x.qty - x.picked), pct(x.picked, x.qty)];
+    }));
+  const ok = await downloadBook(`BaoCao_DonHang_${m}${S.area ? '_KV' + S.area : ''}`, X => {
+    const ws1 = X.utils.aoa_to_sheet(summary); ws1['!cols'] = [16, 10, 10, 12, 12, 12, 12, 8, 18].map(w => ({ wch: w }));
+    const ws2 = X.utils.aoa_to_sheet(byCust); ws2['!cols'] = [8, 28, 12, 26, 14, 8, 10, 8, 8, 8, 10, 10, 10].map(w => ({ wch: w }));
+    return [['Tổng hợp', ws1], ['Theo khách', ws2], ['Chi tiết', detailSheet(X, lines)], ['EX', exSheet(X, exRows(active, false))]];
+  });
+  if (ok) toast(`Đã tải báo cáo tháng ${m.split('-').reverse().join('/')}: ${groupOrders(lines).length} đơn`);
 }
 
 /* ---------- Đọc chữ từ ảnh (Tesseract.js, chạy ngay trên trình duyệt) ---------- */

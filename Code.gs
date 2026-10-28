@@ -18,7 +18,7 @@ const TASK_HEADERS = [
 const ORDER_HEADERS = [
   'ID', 'Ngày nhận đơn', 'Khách hàng', 'Mã hàng', 'SL đặt', 'ĐVT', 'Kho',
   'Ngày nhận dự kiến', 'Người gửi', 'Ghi chú', 'SL đã lấy', 'Trạng thái', 'Cập nhật lúc',
-  'Kho nhận hàng', 'Mã KH SAP', 'Mã hàng SAP', 'Khu vực', 'Mã đơn'
+  'Kho nhận hàng', 'Mã KH SAP', 'Mã hàng SAP', 'Khu vực', 'Mã đơn', 'Lô'
 ];
 // Danh mục: app tự thêm / cập nhật khi lưu đơn, chị cũng có thể sửa tay trong sheet
 const CUSTOMER_HEADERS = ['Khách hàng', 'Mã KH SAP', 'Kho nhận mặc định', 'Cập nhật lúc'];
@@ -214,7 +214,8 @@ function saveOrders(orders) {
     if (toAppend.length) {
       sh.getRange(sh.getLastRow() + 1, 1, toAppend.length, ORDER_HEADERS.length).setValues(toAppend);
     }
-    upsertCatalog_(saved);
+    // Quy đổi thùng/viên không nằm trong sheet DonHang, chuyển sang danh mục mã hàng
+    upsertCatalog_(saved.map((o, i) => Object.assign({}, o, { perBox: orders[i].perBox, m2PerBox: orders[i].m2PerBox })));
     return saved;
   });
 }
@@ -241,7 +242,7 @@ function upsertCatalog_(orders) {
   // [sheet, cột khoá, các cột cần nhớ: [vị trí cột, trường của đơn]]
   const specs = [
     [ss.getSheetByName(SHEET_CUSTOMERS), 'customer', [[1, 'customerSap'], [2, 'toWarehouse']], CUSTOMER_HEADERS.length],
-    [ss.getSheetByName(SHEET_ITEMS), 'code', [[1, 'codeSap'], [2, 'unit']], ITEM_HEADERS.length]
+    [ss.getSheetByName(SHEET_ITEMS), 'code', [[1, 'codeSap'], [2, 'unit'], [3, 'perBox'], [4, 'm2PerBox']], ITEM_HEADERS.length]
   ];
   specs.forEach(([sh, keyField, fields, width]) => {
     const rows = readRows_(sh);
@@ -309,7 +310,8 @@ function rowToOrder_(r) {
     customerSap: String(r[14] || ''),
     codeSap: String(r[15] || ''),
     area: String(r[16] || ''),
-    orderNo: String(r[17] || '')
+    orderNo: String(r[17] || ''),
+    lot: String(r[18] || '')
   };
 }
 
@@ -332,7 +334,8 @@ function orderToRow_(o) {
     String(o.customerSap || '').trim(),
     String(o.codeSap || '').trim().toUpperCase(),
     o.area || '',
-    o.orderNo || ''
+    o.orderNo || '',
+    String(o.lot || '').trim()
   ];
 }
 
