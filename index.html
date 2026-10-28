@@ -1279,13 +1279,13 @@ function toGroups(rows) {
 }
 
 /* Ảnh chụp màn hình đơn hàng SAP (VA02/VA03: Sold-To, Ship-To, Req. Deliv. Date, All Items) */
-const isSapOrder = (t) => /Sold.?To/i.test(t) && /(Order Quantity|Material)/i.test(t);
+const isSapOrder = (t) => /S[o0]ld.{0,2}T[o0]|Ship.{0,2}T[o0].{0,3}Party|Req\.?\s*De/i.test(t);
 function parseSapOrder(text) {
   const lines = text.replace(/\r/g, '').split('\n');
   const all = lines.join('\n');
-  const sold = all.match(/Sold.?To\s*Party\W*(\d{5,10})\W*([^\n]*)/i) || [];
-  const ship = all.match(/Ship.?To\s*Party\W*(\d{5,10})/i) || [];
-  const soNo = (all.split(/Sold.?To/i)[0].match(/(\d{8,10})/) || [])[1] || '';
+  const sold = all.match(/S[o0]ld.{0,2}T[o0]\s*Part\w*\W*(\d{5,10})\W*([^\n]*)/i) || [];
+  const ship = all.match(/Ship.{0,2}T[o0]\s*Part\w*\W*(\d{5,10})/i) || [];
+  const soNo = (all.split(/S[o0]ld.{0,2}T[o0]/i)[0].match(/(\d{8,10})/) || [])[1] || '';
   const dm = all.match(/Req\.?[^\n]*?(\d{2})[.\/](\d{2})[.\/](\d{4})/i);
   const customerSap = sold[1] || '';
   // Tên khách: lấy trong danh mục theo code, không có thì rút gọn tên công ty trên SAP
