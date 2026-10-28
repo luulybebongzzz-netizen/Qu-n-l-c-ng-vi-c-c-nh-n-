@@ -138,6 +138,12 @@ tbody tr:hover{background:var(--surface-2)}
 .bottom-nav{display:none}
 
 /* Đơn hàng */
+.type-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:26px 0 4px;padding:10px 14px;border-radius:12px;font-weight:700;font-size:17px;background:var(--surface);border-left:5px solid var(--primary)}
+.type-head.type-transfer{border-left-color:#d97706}
+.type-head.type-stock{border-left-color:#16a34a}
+.type-head .t-sub{font-weight:400;font-size:12px;flex-basis:100%}
+.type-head .count{font-size:13px;font-weight:600;color:var(--muted);background:var(--surface-2);border-radius:999px;padding:2px 10px}
+.transfer-tag{font-size:11px;font-weight:600;color:#b45309;background:rgba(217,119,6,.12);border-radius:6px;padding:2px 6px;margin-right:6px}
 .group-head{display:flex;align-items:center;gap:8px;font-weight:700;margin:22px 0 10px}
 .group-head .count{background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:1px 9px;font-size:12px;color:var(--muted);font-weight:600}
 .order-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
@@ -293,6 +299,7 @@ tbody tr:hover{background:var(--surface-2)}
         </select>
         <select id="oWarehouse" onchange="render()"></select>
         <select id="oSender" onchange="render()"></select>
+        <select id="oType" onchange="render()"><option value="">Điều chuyển + Có sẵn kho</option><option value="transfer">🚚 Chỉ đơn điều chuyển</option><option value="stock">🏠 Chỉ hàng có sẵn kho</option></select>
         <button class="btn btn-ghost" id="btnSelect" onclick="toggleSelecting()">☑ Chọn đơn xuất EX</button>
         <div class="month-pick"><input type="month" id="oMonth" title="Tháng báo cáo"><button class="btn btn-ghost" onclick="exportMonth()">📊 Báo cáo tháng</button></div>
         <button class="btn btn-ghost mobile-only" onclick="openOrder()">+ Thêm đơn tay</button>
@@ -594,6 +601,12 @@ const AREAS = ['27', '23'];
 // Đơn hàng tự xếp khu vực theo kho nhận hàng: kho trong danh sách → KV 27, kho khác → KV 23.
 // Đơn chưa có kho nhận thì dùng ô Khu vực chọn tay.
 const AREA_27_WAREHOUSES = ['1121'];
+/* Kho nhà của từng khu vực: lấy hàng ở kho khác là đơn điều chuyển */
+const HOME_WAREHOUSE = { '27': '1121', '23': '1118' };
+const isTransfer = (o) => {
+  const wh = String(o.warehouse || '').trim(), home = HOME_WAREHOUSE[areaOf(o)];
+  return !!(wh && home && wh !== home);
+};
 const areaOf = (x) => {
   const wh = String(x.toWarehouse || '').trim();
   if (wh) return AREA_27_WAREHOUSES.includes(wh) ? '27' : '23';
@@ -1037,7 +1050,7 @@ function orderCardHtml(g) {
   const notes = [...new Set(g.lines.map(o => o.note).filter(Boolean))].join(' · ');
   const sel = S.selecting, on = sel && S.sel.has(g.key);
   return `<div class="task-card order-card${on ? ' selected' : ''}" style="--prio:${c}" data-key="${esc(g.key)}" onclick="${sel ? 'toggleSel(this.dataset.key)' : `openOrder('${esc(f.id)}')`}">
-    <div class="row" style="margin-top:0">${sel ? `<input type="checkbox" class="sel" ${on ? 'checked' : ''} onclick="event.stopPropagation();toggleSel(this.closest('.order-card').dataset.key)">` : ''}<div class="title">${areaTag(f)}${esc(g.customer)}</div>${badge(ORDER_STATUSES, g.status)}</div>
+    <div class="row" style="margin-top:0">${sel ? `<input type="checkbox" class="sel" ${on ? 'checked' : ''} onclick="event.stopPropagation();toggleSel(this.closest('.order-card').dataset.key)">` : ''}<div class="title">${areaTag(f)}${g.lines.some(isTransfer) ? '<span class="transfer-tag">🚚 Điều chuyển</span>' : ''}${esc(g.customer)}</div>${badge(ORDER_STATUSES, g.status)}</div>
     ${f.customerSap ? `<div class="t-sub">KH SAP: ${esc(f.customerSap)}</div>` : ''}
     <div class="order-lines">${g.lines.map(orderLineHtml).join('')}</div>
     <div class="row">${pickupHtml(g)}<span class="t-sub">${f.createdAt ? 'Đặt ' + fmtDate(f.createdAt) : ''}${f.sender ? ' · ' + esc(f.sender) : ''}</span></div>
@@ -1089,10 +1102,18 @@ function renderOrders() {
     <div class="stat"><div class="label">Quá hẹn chưa lấy</div><div class="value" style="color:var(--danger)">${s.late}</div></div>
     <div class="stat"><div class="label">Đã lấy (theo SL)</div><div class="value" style="color:var(--ok)">${s.pct}%</div></div>
   </div>`;
-  const groups = orderGroups(list);
-  $('view').innerHTML = stats + (groups.length ? groups.map(g => `
+  // Chia 2 phần: đơn điều chuyển (lấy ở kho khác kho nhà của khu vực) và hàng có sẵn kho
+  const type = $('oType').value;
+  const sections = [
+    { key: 'transfer', title: '🚚 Đơn điều chuyển', hint: 'lấy từ kho khác (KV 27 ≠ 1121, KV 23 ≠ 1118)', lines: list.filter(isTransfer) },
+    { key: 'stock', title: '🏠 Hàng có sẵn kho', hint: 'lấy tại kho của khu vực', lines: list.filter(o => !isTransfer(o)) }
+  ].filter(x => (!type || x.key === type) && x.lines.length);
+  const groupsHtml = (ls) => orderGroups(ls).map(g => `
     <div class="group-head">${g.title}<span class="count">${g.items.length}</span></div>
-    <div class="order-grid">${g.items.map(orderCardHtml).join('')}</div>`).join('')
+    <div class="order-grid">${g.items.map(orderCardHtml).join('')}</div>`).join('');
+  $('view').innerHTML = stats + (sections.length ? sections.map(x => `
+    <div class="type-head type-${x.key}"><span>${x.title}</span><span class="count">${groupOrders(x.lines.filter(orderOpen)).length} đơn chưa lấy</span><span class="t-sub">${x.hint}</span></div>
+    ${groupsHtml(x.lines)}`).join('')
     : `<div class="empty">Chưa có đơn hàng nào phù hợp.<br><br><button class="btn btn-primary" onclick="openPaste()">Dán đơn Zalo</button></div>`)
     + (S.selecting ? `<div class="sel-bar"><b>Đã chọn ${S.sel.size} đơn</b>
       <button class="btn btn-primary" onclick="exportSelected(true)" ${S.sel.size ? '' : 'disabled'}>Gộp thành 1 đơn lớn → EX</button>
@@ -1501,14 +1522,14 @@ function exSheet(X, rows) {
     style: (i, c) => rows[i].noConv && c === 4 ? XS.warn : ([3, 7].includes(c) ? XS.cell : XS.num) });
 }
 
-const DETAIL_HEAD = ['Ngày đặt', 'Mã đơn', 'Khu vực', 'Khách hàng', 'Mã KH SAP', 'Mã hàng', 'Mã hàng SAP', 'SL đặt', 'ĐVT', 'Thùng', 'Viên', 'SL đã lấy', 'SL còn lại', 'Trạng thái', 'Nơi lấy hàng (điều chuyển về)', 'Nơi nhận hàng', 'Ngày khách nhận', 'Người gửi', 'Lô', 'Ghi chú'];
+const DETAIL_HEAD = ['Ngày đặt', 'Mã đơn', 'Khu vực', 'Loại đơn', 'Khách hàng', 'Mã KH SAP', 'Mã hàng', 'Mã hàng SAP', 'SL đặt', 'ĐVT', 'Thùng', 'Viên', 'SL đã lấy', 'SL còn lại', 'Trạng thái', 'Nơi lấy hàng (điều chuyển về)', 'Nơi nhận hàng', 'Ngày khách nhận', 'Người gửi', 'Lô', 'Ghi chú'];
 function detailSheet(X, lines) {
   const aoa = [DETAIL_HEAD].concat(lines.map(o => {
     const r = exQty(o) || { th: '', v: '' };
-    return [fmtDate(o.createdAt), o.orderNo, areaOf(o) ? 'KV ' + areaOf(o) : '', o.customer, o.customerSap, o.code, o.codeSap, Number(o.qty) || 0, o.unit, r.th, r.v || '',
+    return [fmtDate(o.createdAt), o.orderNo, areaOf(o) ? 'KV ' + areaOf(o) : '', isTransfer(o) ? 'Điều chuyển' : 'Có sẵn kho', o.customer, o.customerSap, o.code, o.codeSap, Number(o.qty) || 0, o.unit, r.th, r.v || '',
       Number(o.picked) || 0, Math.max(0, (Number(o.qty) || 0) - (Number(o.picked) || 0)), o.status, o.warehouse, o.toWarehouse, fmtDate(o.pickupDate), o.sender, o.lot || '', o.note];
   }));
-  return styledSheet(X, aoa, { cols: DETAIL_HEAD.map((h, i) => [3, 5].includes(i) ? 24 : i === 19 ? 40 : i === 14 ? 16 : 12) });
+  return styledSheet(X, aoa, { cols: DETAIL_HEAD.map((h, i) => [4, 6].includes(i) ? 24 : i === 20 ? 40 : i === 15 ? 16 : 12) });
 }
 
 async function downloadBook(name, sheets) {
@@ -1574,6 +1595,7 @@ async function exportMonth() {
   const byArea = [['Khu vực', ...SUM_HEAD]].concat(areas.map(a => sumRow(a ? 'KV ' + a : 'Chưa gán', lines.filter(o => (areaOf(o) || '') === a)))).concat([sumRow('Tổng', lines)]);
   const whs = [...new Set(lines.map(o => o.warehouse || ''))].sort();
   const byWh = [['Nơi lấy hàng (điều chuyển về)', ...SUM_HEAD]].concat(whs.map(w => sumRow(w || 'Chưa có', lines.filter(o => (o.warehouse || '') === w))));
+  const byType = [['Loại đơn', ...SUM_HEAD]].concat([['Điều chuyển', true], ['Có sẵn kho', false]].map(([n, t]) => sumRow(n, lines.filter(o => isTransfer(o) === t))));
   const title = `BÁO CÁO ĐƠN HÀNG THÁNG ${m.split('-').reverse().join('/')}${S.area ? ' · KV ' + S.area : ''}`;
   // Theo khách + mã hàng
   const map = new Map();
@@ -1589,10 +1611,12 @@ async function exportMonth() {
     }));
   const ok = await downloadBook(`BaoCao_DonHang_${m}${S.area ? '_KV' + S.area : ''}`, X => {
     // Trang Tổng hợp: bảng theo khu vực, bên dưới là bảng theo nơi lấy hàng
-    const aoa1 = [[title], [], ...byArea, [], [], ...byWh];
+    const aoa1 = [[title], [], ...byArea, [], [], ...byWh, [], [], ...byType];
     const ws1 = styledSheet(X, aoa1, { top: 2, headRows: 1, cols: [28, 10, 10, 13, 11, 13, 10, 8, 18] });
     const h2 = 2 + byArea.length + 2;
     byWh[0].forEach((_, c) => { ws1[X.utils.encode_cell({ r: h2, c })].s = XS.head; });
+    const h3 = h2 + byWh.length + 2;
+    byType[0].forEach((_, c) => { ws1[X.utils.encode_cell({ r: h3, c })].s = XS.head; });
     byArea[byArea.length - 1].forEach((_, c) => { ws1[X.utils.encode_cell({ r: 2 + byArea.length - 1, c })].s = XS.total; });
     const ws2 = styledSheet(X, byCust, { cols: [8, 26, 12, 16, 14, 24, 13, 8, 10, 8, 8, 8, 10, 10, 10] });
     return [['Tổng hợp', ws1], ['Theo khách', ws2], ['Chi tiết', detailSheet(X, lines)], ['EX', exSheet(X, exRows(active, false))]];

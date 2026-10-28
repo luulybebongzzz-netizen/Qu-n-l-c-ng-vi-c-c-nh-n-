@@ -27,6 +27,7 @@
 - Thùng / viên: điền "m²/thùng" và "Viên/thùng" cho mã hàng (trong đơn hoặc sheet MaHang), app tự đổi m² ra thùng + viên (làm tròn lên đủ viên). Khi nhập tay có thể gõ thẳng số thùng và số viên. Tin Zalo dạng "10 thùng 5 viên" cũng tách được.
 - Xuất EX: nút "⬇ Xuất EX" trên từng đơn tải file Excel theo mẫu EX (Nơi lấy hàng · Nơi nhận hàng · Mã SAP · Mã Hàng · Số lượng TH / V · Lô · Khách hàng - code khách; mã chưa có quy đổi thì ghi nguyên SL + ĐVT, tô vàng). Nút "☑ Chọn đơn xuất EX" để chọn nhiều đơn, "Gộp thành 1 đơn lớn" cộng các dòng cùng kho lấy + mã hàng + lô.
 - Báo cáo tháng: chọn tháng rồi bấm "📊 Báo cáo tháng", tải file Excel gồm Tổng hợp (theo khu vực và theo nơi lấy hàng / điều chuyển về), Theo khách (khách + mã hàng: đặt, đã lấy, còn lại, %), Chi tiết và EX. Theo khu vực đang chọn ở trên cùng.
+- Điều chuyển / có sẵn kho: trong mỗi khu vực, đơn chia 2 phần. Đơn lấy hàng ở kho khác kho nhà (KV 27 khác 1121, KV 23 khác 1118) là đơn điều chuyển, có nhãn 🚚. Sửa kho nhà ở HOME_WAREHOUSE trong Index.html. Báo cáo tháng có thêm bảng theo loại đơn.
 - Khu vực: nút Tất cả / KV 27 / KV 23 trên cùng lọc toàn bộ app; đơn hàng tự xếp theo kho nhận hàng (1121 → KV 27, kho khác → KV 23, sửa danh sách ở AREA_27_WAREHOUSES trong Index.html); công việc tự gán khu vực đang chọn, dữ liệu chưa gán khu vực hiện ở mọi khu vực.
 - Giao diện tối, nhớ màn hình đang xem.
 
