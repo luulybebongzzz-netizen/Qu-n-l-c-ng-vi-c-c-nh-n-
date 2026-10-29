@@ -10,6 +10,8 @@
 **MaHang**: Mã hàng · Mã hàng SAP · ĐVT · Viên/thùng · m²/thùng · Cập nhật lúc
 (App tự thêm/cập nhật hai danh mục này mỗi khi lưu đơn; gõ tên khách hoặc mã hàng là tự điền mã SAP, kho nhận, ĐVT.)
 
+**MB51**: Chứng từ · Dòng · Ngày · Kho · Mã SAP · Mô tả · Lô · SL (ĐVT gốc) · ĐVT gốc · SL nhập · ĐVT nhập · Loại · Khách · Sales order (app tự ghi khi nhập MB51, chỉ giữ 601/602, không trùng chứng từ)
+
 **ThanhVien**: Tên · Email · Vai trò (danh sách người để giao việc; cột Email dùng cho mục "Của tôi")
 
 **CaiDat**: Loại (TrangThai / UuTien) · Giá trị · Màu. Sửa sheet này để đổi tên, màu hoặc thêm trạng thái và mức ưu tiên mà không cần sửa code.
@@ -26,6 +28,8 @@
 - Đọc phiếu PDF điều chuyển: bấm "📄 Đọc phiếu PDF điều chuyển" (chọn được nhiều file), app lấy kho xuất, kho nhận (số cuối tên khách, ví dụ "- 1121"), mã hàng, mã SAP, lô, số lượng (dòng Thùng + Viên cùng mã gộp lại), số chứng từ vào ghi chú; chị chỉ gõ tên khách hàng. Cần PDF dạng chữ (xuất từ hệ thống), không phải ảnh scan.
 - Ảnh chụp đơn hàng SAP (màn hình Change/Display Đơn hàng nội địa): dán ảnh vào ô dán đơn, app lấy số đơn (ghi chú "SO ..."), Sold-To → code khách (tên khách lấy theo danh mục KhachHang), Ship-To 80xxxx → kho nhận xxxx, Req. Deliv. Date → ngày lấy hàng, từng dòng Material → mã hàng SAP, mã hàng trong mô tả, số lượng, ĐVT, Plnt → kho lấy, Batch → lô.
 - Ảnh bảng tồn kho SAP (Plant · Mat. · Batch · Khả dụng): tô chọn dòng kho lấy hàng và ghi chữ đỏ "94th NHẬT MINH" lên ảnh; app lấy kho lấy = Plant của dòng được chọn, mã SAP, mã hàng, lô, số lượng + tên khách từ chữ đỏ (khớp với danh mục khách). Kho nhận chị tự điền.
+- Nhập MB51: bấm "📥 Nhập MB51", chọn file Excel xuất từ SAP (hoặc copy dán). App lấy dòng 601 (xuất giao khách) / 602 (huỷ), khớp Customer = code khách, Material = mã hàng SAP, chỉ tính lần xuất từ ngày đặt đơn trở đi, đơn cũ trừ trước, rồi cộng SL đã lấy (chỉ tăng, không giảm). Tự học số viên/thùng từ MB51 và tự điền mã hàng SAP còn trống theo mô tả. Nhập lại file cũ không bị cộng trùng.
+- Thẻ đơn: cùng khách + cùng ngày lấy gom một thẻ (đơn điều chuyển và hàng có sẵn kho vẫn ở 2 phần riêng); dòng đã lấy đủ / huỷ nằm riêng ở mục "✅ Đơn đã lấy / huỷ" cuối trang. "+ Thêm mã" mở ô dán đơn để dán chữ, ảnh, PDF hoặc gõ mã mới vào đúng đơn đó.
 - Đơn hàng: dán tin Zalo (ví dụ "Quỳnh An / 2080banyan002 20m / thứ 2 tuần sau khách nhận"), app tự tách khách hàng, mã hàng, số lượng, ngày nhận; xem trước, sửa, thêm dòng rồi lưu. Có nút thêm đơn tay. Đơn được nhóm theo Quá hẹn / Hôm nay / Ngày mai / Sắp nhận, bấm "Khách đã lấy đủ" để đóng đơn.
 - Thùng / viên: điền "m²/thùng" và "Viên/thùng" cho mã hàng (trong đơn hoặc sheet MaHang), app tự đổi m² ra thùng + viên (làm tròn lên đủ viên). Khi nhập tay có thể gõ thẳng số thùng và số viên. Tin Zalo dạng "10 thùng 5 viên" cũng tách được.
 - Xuất EX: nút "⬇ Xuất EX" trên từng đơn tải file Excel theo mẫu EX (Nơi lấy hàng · Nơi nhận hàng · Mã SAP · Mã Hàng · Số lượng TH / V · Lô · Khách hàng - code khách; mã chưa có quy đổi thì ghi nguyên SL + ĐVT, tô vàng). Nút "☑ Chọn đơn xuất EX" để chọn nhiều đơn, "Gộp thành 1 đơn lớn" cộng các dòng cùng kho lấy + mã hàng + lô.

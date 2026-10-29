@@ -141,6 +141,7 @@ tbody tr:hover{background:var(--surface-2)}
 .type-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:26px 0 4px;padding:10px 14px;border-radius:12px;font-weight:700;font-size:17px;background:var(--surface);border-left:5px solid var(--primary)}
 .type-head.type-transfer{border-left-color:#d97706}
 .type-head.type-stock{border-left-color:#16a34a}
+.type-head.type-done{border-left-color:#94a3b8}
 .type-head .t-sub{font-weight:400;font-size:12px;flex-basis:100%}
 .type-head .count{font-size:13px;font-weight:600;color:var(--muted);background:var(--surface-2);border-radius:999px;padding:2px 10px}
 .transfer-tag{font-size:11px;font-weight:600;color:#b45309;background:rgba(217,119,6,.12);border-radius:6px;padding:2px 6px;margin-right:6px}
@@ -165,6 +166,13 @@ tbody tr:hover{background:var(--surface-2)}
 .pg-cols{display:grid;grid-template-columns:1.5fr 1fr 1.2fr 1fr 38px;gap:6px;padding:8px 9px 4px;font-size:12px;font-weight:600;color:var(--muted)}
 .pg-lines .parsed-row{grid-template-columns:1.5fr 1fr 1.2fr 1fr auto;margin-bottom:6px;padding:6px 8px;background:var(--surface)}
 .pl-hint{grid-area:auto;grid-column:1/-1;font-size:12px;color:#b45309}
+.paste-into{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 12px;margin-bottom:10px;border-radius:10px;background:rgba(79,70,229,.1);font-size:14px}
+.done-sec{margin-top:26px}
+.done-sec>summary{cursor:pointer;list-style:none}
+.done-sec>summary::-webkit-details-marker{display:none}
+.done-sec .order-card{opacity:.85}
+.mb-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.mb-table td,.mb-table th{border-bottom:1px solid var(--border);padding:6px 4px;text-align:left}
 .pg-add{color:var(--primary);font-weight:600;font-size:13px;padding:4px 0}
 .pg-foot{display:grid;grid-template-columns:1fr 2.5fr;gap:8px;margin-top:8px;padding-top:10px;border-top:1px dashed var(--border)}
 .paste-opts select{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;outline:none;width:100%}
@@ -172,7 +180,7 @@ tbody tr:hover{background:var(--surface-2)}
 .area-switch button{padding:6px 12px;border-radius:8px;font-weight:600;color:var(--muted);white-space:nowrap}
 .area-switch button.active{background:var(--primary);color:#fff}
 .area-tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;background:var(--primary-soft);color:var(--primary);margin-right:6px;vertical-align:middle}
-#pasteText{width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;outline:none;resize:vertical}
+#pasteText,#mbText{width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;outline:none;resize:vertical}
 .modal.wide{max-width:980px}
 .ocr-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .order-lines{display:flex;flex-direction:column;gap:6px;margin-top:8px}
@@ -292,7 +300,7 @@ tbody tr:hover{background:var(--surface-2)}
           <input id="oSearch" placeholder="Tìm khách hàng, mã hàng..." oninput="render()">
         </div>
         <select id="oStatus" onchange="render()">
-          <option value="open">Chưa lấy xong</option>
+          <option value="open">Chưa lấy xong (đơn đã lấy để riêng)</option>
           <option value="">Tất cả</option>
           <option>Chưa lấy</option>
           <option>Lấy một phần</option>
@@ -303,6 +311,7 @@ tbody tr:hover{background:var(--surface-2)}
         <select id="oSender" onchange="render()"></select>
         <select id="oType" onchange="render()"><option value="">Điều chuyển + Có sẵn kho</option><option value="transfer">🚚 Chỉ đơn điều chuyển</option><option value="stock">🏠 Chỉ hàng có sẵn kho</option></select>
         <button class="btn btn-ghost" id="btnSelect" onclick="toggleSelecting()">☑ Chọn đơn xuất EX</button>
+        <button class="btn btn-ghost" onclick="openMb51()">📥 Nhập MB51</button>
         <div class="month-pick"><input type="month" id="oMonth" title="Tháng báo cáo"><button class="btn btn-ghost" onclick="exportMonth()">📊 Báo cáo tháng</button></div>
         <button class="btn btn-ghost mobile-only" onclick="openOrder()">+ Thêm đơn tay</button>
       </div>
@@ -353,6 +362,7 @@ tbody tr:hover{background:var(--surface-2)}
       <button type="button" class="icon-btn" onclick="closePaste()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>
     <div class="modal-body block">
+      <div id="pasteInto" class="paste-into" style="display:none"></div>
       <textarea id="pasteText" placeholder="Dán tin nhắn Zalo (chữ) hoặc ảnh chụp tin nhắn (Ctrl + V) vào đây, ví dụ:&#10;&#10;Quỳnh An&#10;2080banyan002 20m&#10;thứ 2 tuần sau khách nhận&#10;&#10;(Có thể dán nhiều tin, cách nhau một dòng trống)"></textarea>
       <div class="ocr-bar">
         <label class="btn btn-ghost" for="ocrFile">🖼️ Đọc chữ từ ảnh</label>
@@ -415,6 +425,28 @@ tbody tr:hover{background:var(--surface-2)}
       <button type="submit" class="btn btn-primary">Lưu</button>
     </div>
   </form>
+</div>
+
+<!-- Nhập MB51 -->
+<div class="overlay" id="mbOverlay" onclick="if(event.target===this)closeMb51()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Nhập MB51 (hàng khách đã lấy)</h2>
+      <button type="button" class="icon-btn" onclick="closeMb51()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body block">
+      <div class="t-sub" style="margin-bottom:10px">Xuất MB51 trên SAP ra Excel rồi chọn file, hoặc mở file, bấm Ctrl + A, Ctrl + C rồi dán vào ô dưới (cần có dòng tiêu đề). App lấy các dòng xuất cho khách (601, huỷ 602), khớp theo <b>code khách</b> + <b>mã hàng SAP</b> và tự cộng <b>SL đã lấy</b> cho đơn. Nhập lại file cũ không bị cộng trùng.</div>
+      <div class="ocr-bar">
+        <label class="btn btn-primary" for="mbFile">📂 Chọn file MB51 (.xlsx)</label>
+        <input type="file" id="mbFile" accept=".xlsx,.xls,.csv" hidden onchange="if (this.files[0]) importMb51File(this.files[0]); this.value = ''">
+        <span class="t-sub" id="mbStatus"></span>
+      </div>
+      <textarea id="mbText" placeholder="...hoặc dán số liệu MB51 copy từ Excel vào đây" style="min-height:90px"></textarea>
+      <button type="button" class="btn btn-ghost" style="margin-top:8px" onclick="importMb51Text()">Nhập số liệu đã dán</button>
+      <div id="mbResult" style="margin-top:12px"></div>
+    </div>
+    <div class="modal-foot"><div class="spacer"></div><button type="button" class="btn btn-ghost" onclick="closeMb51()">Đóng</button></div>
+  </div>
 </div>
 
 <datalist id="dlCustomers"></datalist><datalist id="dlCodes"></datalist><datalist id="dlWarehouses"></datalist><datalist id="dlToWarehouses"></datalist><datalist id="dlSenders"></datalist>
@@ -499,11 +531,18 @@ const Demo = {
       localStorage.setItem('demoOrders', JSON.stringify(all)); return o;
     });
   },
-  deleteOrder(id) { localStorage.setItem('demoOrders', JSON.stringify(this._orders().filter(x => x.id !== id))); return id; }
+  deleteOrder(id) { localStorage.setItem('demoOrders', JSON.stringify(this._orders().filter(x => x.id !== id))); return id; },
+  getMb51(since) { let a = []; try { a = JSON.parse(localStorage.getItem('demoMb51')) || []; } catch (e) {} return a.filter(r => !since || r.date >= since); },
+  importMb51(rows, since) {
+    const all = this.getMb51(''), have = new Set(all.map(r => r.doc + '|' + r.item));
+    const add = rows.filter(r => r.doc && !have.has(r.doc + '|' + r.item) && have.add(r.doc + '|' + r.item));
+    try { localStorage.setItem('demoMb51', JSON.stringify(all.concat(add))); } catch (e) {}
+    return { added: add.length, rows: this.getMb51(since) };
+  }
 };
 
 /* ---------- Trạng thái ---------- */
-const S = { tasks: [], orders: [], customers: [], items: [], area: '', selecting: false, sel: new Set(), ocrPick: '', members: [], statuses: [], priorities: [], view: 'dashboard' };
+const S = { tasks: [], orders: [], customers: [], items: [], area: '', selecting: false, sel: new Set(), ocrPick: '', pasteInto: null, members: [], statuses: [], priorities: [], view: 'dashboard' };
 const VIEWS = [
   { id: 'dashboard', label: 'Tổng quan', icon: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>' },
   { id: 'list', label: 'Danh sách', icon: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>' },
@@ -1006,7 +1045,6 @@ function filteredOrders() {
   const st = $('oStatus').value, wh = $('oWarehouse').value, se = $('oSender').value;
   return S.orders.filter(inArea).filter(o => {
     if (q && !`${o.customer} ${o.code} ${o.note} ${o.sender} ${o.warehouse} ${o.toWarehouse} ${o.customerSap} ${o.codeSap} ${o.lot || ''}`.toLowerCase().includes(q)) return false;
-    if (st === 'open' && !orderOpen(o)) return false;
     if (st && st !== 'open' && o.status !== st) return false;
     if (wh && o.warehouse !== wh) return false;
     if (se && o.sender !== se) return false;
@@ -1017,9 +1055,12 @@ function filteredOrders() {
 /* Các dòng hàng cùng một đơn (cùng lần dán, cùng khách) gom thành một thẻ */
 const orderKey = (o) => o.orderNo || [o.customer, o.createdAt, o.pickupDate].join('|');
 
+/* Thẻ đơn: cùng khách + cùng ngày lấy gom một thẻ; dòng đã lấy xong / huỷ tách thẻ riêng */
+const groupKey = (o) => [noMark(o.customer), o.pickupDate || '', orderOpen(o) ? 'o' : 'd'].join('|');
+
 function groupOrders(lines) {
   const map = new Map();
-  lines.forEach(o => { const k = orderKey(o); if (!map.has(k)) map.set(k, []); map.get(k).push(o); });
+  lines.forEach(o => { const k = groupKey(o); if (!map.has(k)) map.set(k, []); map.get(k).push(o); });
   return [...map.entries()].map(([key, ls]) => {
     const open = ls.filter(orderOpen);
     let status = 'Chưa lấy';
@@ -1137,16 +1178,22 @@ function renderOrders() {
   </div>`;
   // Chia 2 phần: đơn điều chuyển (lấy ở kho khác kho nhà của khu vực) và hàng có sẵn kho
   const type = $('oType').value;
+  const openLines = list.filter(orderOpen), doneLines = list.filter(o => !orderOpen(o) && (!type || (type === 'transfer') === isTransfer(o)));
   const sections = [
-    { key: 'transfer', title: '🚚 Đơn điều chuyển', hint: 'lấy từ kho khác (KV 27 ≠ 1121, KV 23 ≠ 1118)', lines: list.filter(isTransfer) },
-    { key: 'stock', title: '🏠 Hàng có sẵn kho', hint: 'lấy tại kho của khu vực', lines: list.filter(o => !isTransfer(o)) }
+    { key: 'transfer', title: '🚚 Đơn điều chuyển', hint: 'lấy từ kho khác (KV 27 ≠ 1121, KV 23 ≠ 1118)', lines: openLines.filter(isTransfer) },
+    { key: 'stock', title: '🏠 Hàng có sẵn kho', hint: 'lấy tại kho của khu vực', lines: openLines.filter(o => !isTransfer(o)) }
   ].filter(x => (!type || x.key === type) && x.lines.length);
+  // Đơn đã lấy / huỷ: để riêng cuối trang, mới nhất trước
+  const doneGroups = groupOrders(doneLines).sort((a, b) => String(b.pickupDate || b.lines[0].updatedAt || '').localeCompare(String(a.pickupDate || a.lines[0].updatedAt || '')));
+  const doneHtml = doneGroups.length ? `<details class="done-sec"${['Đã lấy đủ', 'Huỷ'].includes($('oStatus').value) ? ' open' : ''}>
+    <summary class="type-head type-done"><span>✅ Đơn đã lấy / huỷ</span><span class="count">${doneGroups.length} đơn</span><span class="t-sub">bấm để xem</span></summary>
+    <div class="order-grid" style="margin-top:12px">${doneGroups.slice(0, 80).map(orderCardHtml).join('')}</div></details>` : '';
   const groupsHtml = (ls) => orderGroups(ls).map(g => `
     <div class="group-head">${g.title}<span class="count">${g.items.length}</span></div>
     <div class="order-grid">${g.items.map(orderCardHtml).join('')}</div>`).join('');
-  $('view').innerHTML = stats + (sections.length ? sections.map(x => `
-    <div class="type-head type-${x.key}"><span>${x.title}</span><span class="count">${groupOrders(x.lines.filter(orderOpen)).length} đơn chưa lấy</span><span class="t-sub">${x.hint}</span></div>
-    ${groupsHtml(x.lines)}`).join('')
+  $('view').innerHTML = stats + (sections.length || doneHtml ? sections.map(x => `
+    <div class="type-head type-${x.key}"><span>${x.title}</span><span class="count">${groupOrders(x.lines).length} đơn chưa lấy</span><span class="t-sub">${x.hint}</span></div>
+    ${groupsHtml(x.lines)}`).join('') + doneHtml
     : `<div class="empty">Chưa có đơn hàng nào phù hợp.<br><br><button class="btn btn-primary" onclick="openPaste()">Dán đơn Zalo</button></div>`)
     + (S.selecting ? `<div class="sel-bar"><b>Đã chọn ${S.sel.size} đơn</b>
       <button class="btn btn-primary" onclick="exportSelected(true)" ${S.sel.size ? '' : 'disabled'}>Gộp thành 1 đơn lớn → EX</button>
@@ -1157,9 +1204,13 @@ function renderOrders() {
 }
 
 /* Dán tin Zalo */
-function openPaste() {
+function openPaste(into) {
   $('pasteText').value = '';
   S.ocrPick = '';
+  S.pasteInto = into && into.customer ? into : null;
+  $('pasteInto').style.display = S.pasteInto ? '' : 'none';
+  if (S.pasteInto) $('pasteInto').innerHTML = `<span>➕ Thêm mã vào đơn <b>${esc(into.customer)}</b>${into.pickupDate ? ' · lấy ' + fmtDate(into.pickupDate) : ''}. Dán chữ, ảnh hoặc PDF, hoặc gõ mã ngay bên dưới.</span>
+    <button type="button" class="btn btn-ghost" onclick="addLineManual()">✏️ Mở form nhập tay</button>`;
   $('pastePreview').innerHTML = '';
   $('btnSaveParsed').style.display = 'none';
   $('pasteArea').value = S.area;
@@ -1167,6 +1218,7 @@ function openPaste() {
   $('ocrStatus').textContent = 'Có thể dán thẳng ảnh chụp tin Zalo vào ô trên.';
   try { $('pasteSender').value = localStorage.getItem('lastSender') || ''; $('pasteWarehouse').value = localStorage.getItem('lastWarehouse') || ''; $('pasteToWarehouse').value = localStorage.getItem('lastToWarehouse') || ''; } catch (e) {}
   buildOrderSelects();
+  if (S.pasteInto) showGroups([{ lines: [{ code: '', qty: '', unit: '' }] }], 'Gõ mã hàng mới, hoặc dán chữ / ảnh vào ô trên:');
   $('pasteOverlay').classList.add('show');
   if (window.innerWidth > 768) setTimeout(() => $('pasteText').focus(), 50);
 }
@@ -1418,6 +1470,24 @@ function previewParsed() {
 
 /* Hiện các đơn để kiểm tra; append = true thì thêm vào dưới các đơn đang có */
 function showGroups(groups, msg, append) {
+  if (S.pasteInto) {
+    // Đang thêm vào đơn có sẵn: gom mọi dòng đọc được vào một khung mang thông tin đơn đó
+    const into = S.pasteInto, keep = $('parsedRows') && append ? [] : null;
+    const lines = groups.flatMap(g => g.lines).filter(l => l.code || !groups.some(g => g.lines.some(x => x.code)));
+    const note = [...new Set(groups.map(g => g.note).filter(Boolean))].join('. ');
+    groups = [{ ...into, warehouse: into.warehouse || (groups[0] || {}).warehouse, toWarehouse: into.toWarehouse || (groups[0] || {}).toWarehouse, note, lines }];
+    if (append && $('parsedRows')) {
+      const box = $('parsedRows').querySelector('.pgroup .pg-lines');
+      if (box) {
+        box.querySelectorAll('.pline').forEach(pl => { if (!pl.querySelector('[data-k=code]').value.trim()) pl.remove(); });
+        lines.forEach(normExtraV);
+        box.insertAdjacentHTML('beforeend', lines.flatMap(r => { const x = r.extraLine; delete r.extraLine; return x ? [r, x] : [r]; }).map(parsedLineHtml).join(''));
+        $('pastePreview').querySelector('.t-sub').innerHTML = msg;
+        return;
+      }
+    }
+    append = false;
+  }
   if (append && $('parsedRows')) {
     // Bỏ khung trống (chưa gõ gì) trước khi thêm
     $('parsedRows').querySelectorAll('.pgroup').forEach(g => { if (![...g.querySelectorAll('[data-k=customer], [data-k=code]')].some(i => i.value.trim())) g.remove(); });
@@ -1450,10 +1520,11 @@ async function saveParsed() {
   [...document.querySelectorAll('#pastePreview .pgroup')].forEach((gEl, gi) => {
     const head = {};
     gEl.querySelectorAll('.pg-head [data-k], .pg-foot [data-k]').forEach(inp => head[inp.dataset.k] = inp.value.trim());
-    // Mỗi khung là một đơn, các mã trong khung dùng chung mã đơn
-    const orderNo = `DH${stamp}${gi}`;
+    // Mỗi khung là một đơn, các mã trong khung dùng chung mã đơn (thêm vào đơn cũ thì dùng mã đơn cũ)
+    const orderNo = S.pasteInto ? S.pasteInto.orderNo : `DH${stamp}${gi}`;
+    if (S.pasteInto) head.createdAt = S.pasteInto.createdAt || createdAt;
     gEl.querySelectorAll('.pline').forEach(el => {
-      const o = { ...head, createdAt, picked: 0, status: 'Chưa lấy', area: $('pasteArea').value, orderNo };
+      const o = { createdAt, ...head, picked: 0, status: 'Chưa lấy', area: $('pasteArea').value, orderNo };
       el.querySelectorAll('[data-k]').forEach(inp => o[inp.dataset.k] = inp.value.trim());
       o.qty = Number(o.qty) || 0;
       if (o.replaceId) {
@@ -1512,11 +1583,17 @@ function openOrder(id, prefill) {
 function closeOrder() { $('orderOverlay').classList.remove('show'); }
 
 /* Thêm một mã hàng vào cùng đơn với dòng `id` */
+const INTO_KEYS = ['customer', 'customerSap', 'warehouse', 'toWarehouse', 'area', 'pickupDate', 'sender', 'createdAt'];
 function addLineTo(id) {
   const o = S.orders.find(x => x.id === id);
   if (!o) return;
-  const keep = ['customer', 'customerSap', 'warehouse', 'toWarehouse', 'area', 'pickupDate', 'sender', 'createdAt'];
-  openOrder(null, { ...Object.fromEntries(keep.map(k => [k, o[k]])), orderNo: o.orderNo || orderKeyToNo(o) });
+  // Mở ô dán đơn để dán chữ / ảnh / PDF hoặc gõ tay mã mới cho đơn này
+  openPaste({ ...Object.fromEntries(INTO_KEYS.map(k => [k, o[k] || ''])), orderNo: o.orderNo || orderKeyToNo(o) });
+}
+function addLineManual() {
+  const into = S.pasteInto;
+  closePaste();
+  if (into) openOrder(null, { ...into });
 }
 
 /* Dòng cũ chưa có mã đơn: tạo mã đơn chung rồi gán cho các dòng cùng nhóm khi lưu */
@@ -1820,6 +1897,146 @@ async function exportMonth() {
   if (ok) toast(`Đã tải báo cáo tháng ${m.split('-').reverse().join('/')}: ${groupOrders(lines).length} đơn`);
 }
 
+/* ---------- Nhập MB51: tự cộng SL khách đã lấy ----------
+ * 601 = xuất giao khách (SL âm), 602 = huỷ xuất. Khớp code khách (Customer) + mã hàng SAP (Material).
+ * Mỗi lần xuất chỉ tính cho đơn đặt trước hoặc cùng ngày xuất, đơn cũ hơn được trừ trước. */
+function openMb51() { $('mbResult').innerHTML = ''; $('mbStatus').textContent = ''; $('mbText').value = ''; $('mbOverlay').classList.add('show'); }
+function closeMb51() { $('mbOverlay').classList.remove('show'); }
+
+const MB_COLS = {
+  date: ['posting date', 'ngày hạch toán'], plant: ['plant'], material: ['material'], desc: ['material description'],
+  baseUnit: ['base unit of measure'], qty: ['quantity'], mvt: ['movement type'], batch: ['batch'],
+  doc: ['material document'], item: ['material doc.item', 'material doc. item'], qtyEntry: ['qty in unit of entry'],
+  unitEntry: ['unit of entry'], customer: ['customer'], so: ['sales order']
+};
+const stripZero = (v) => String(v ?? '').trim().replace(/^0+(?=\d)/, '');
+
+function mbDate(v) {
+  if (v instanceof Date) return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+  if (typeof v === 'number') { const d = new Date(Math.round((v - 25569) * 864e5)); return d.toISOString().slice(0, 10); }
+  const m = String(v || '').match(/(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})/) || String(v || '').match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return '';
+  return m[1].length === 4 ? `${m[1]}-${m[2]}-${m[3]}` : `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+
+/* Bảng (mảng các dòng) → các dòng xuất / huỷ xuất cho khách */
+function mbRowsFromTable(aoa) {
+  const hi = aoa.findIndex(r => r.some(c => /movement type/i.test(String(c))) && r.some(c => /^material$/i.test(String(c).trim())));
+  if (hi < 0) throw 'Không thấy dòng tiêu đề MB51 (cần các cột Material, Movement type, Customer...)';
+  const head = aoa[hi].map(c => String(c).trim().toLowerCase());
+  const col = Object.fromEntries(Object.entries(MB_COLS).map(([k, names]) => [k, head.findIndex(h => names.includes(h))]));
+  const get = (r, k) => col[k] >= 0 ? r[col[k]] : '';
+  const num = (v) => typeof v === 'number' ? v : vnNum(String(v).replace(/\s/g, '')) * (/^-|-$/.test(String(v).trim()) ? -1 : 1);
+  return aoa.slice(hi + 1).map(r => ({
+    doc: String(get(r, 'doc') || '').trim(), item: String(get(r, 'item') || '').trim(), date: mbDate(get(r, 'date')),
+    plant: String(get(r, 'plant') || '').trim(), material: stripZero(get(r, 'material')), desc: String(get(r, 'desc') || ''),
+    batch: String(get(r, 'batch') || '').trim(), qty: num(get(r, 'qty')), baseUnit: String(get(r, 'baseUnit') || '').trim(),
+    qtyEntry: num(get(r, 'qtyEntry')), unitEntry: String(get(r, 'unitEntry') || '').trim(), mvt: String(get(r, 'mvt') || '').trim(),
+    customer: stripZero(get(r, 'customer')), so: String(get(r, 'so') || '').trim()
+  })).filter(r => ['601', '602'].includes(r.mvt) && r.customer && r.material && r.doc);
+}
+
+async function importMb51File(file) {
+  $('mbStatus').textContent = 'Đang đọc file...';
+  try {
+    const X = await loadXlsx();
+    const wb = X.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+    const aoa = X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: '' });
+    await applyMb51(mbRowsFromTable(aoa));
+  } catch (e) { $('mbStatus').textContent = '⚠️ ' + (e.message || e); }
+}
+async function importMb51Text() {
+  const t = $('mbText').value.trim();
+  if (!t) return toast('Chưa dán số liệu', true);
+  try { await applyMb51(mbRowsFromTable(t.split(/\r?\n/).map(l => l.split('\t')))); }
+  catch (e) { $('mbStatus').textContent = 'Lỗi: ' + (e.message || e); }
+}
+
+/* Số viên/thùng học từ MB51: SL gốc (viên) ÷ SL nhập (thùng) */
+function learnPerBox(rows) {
+  const votes = {};
+  rows.forEach(r => {
+    if (unitKind(r.unitEntry) !== 'box' || unitKind(r.baseUnit) !== 'pcs' || !r.qtyEntry) return;
+    const n = Math.abs(r.qty / r.qtyEntry);
+    if (Number.isInteger(n) && n > 1) (votes[r.material] = votes[r.material] || {})[n] = (votes[r.material][n] || 0) + 1;
+  });
+  return Object.fromEntries(Object.entries(votes).map(([m, v]) => [m, Number(Object.keys(v).sort((a, b) => v[b] - v[a])[0])]));
+}
+
+async function applyMb51(rows) {
+  const st = $('mbStatus');
+  if (!rows.length) { st.textContent = 'Không có dòng xuất cho khách (601/602) có code khách.'; return; }
+  st.textContent = `Đọc được ${rows.length} dòng xuất cho khách, đang lưu...`;
+  const live = S.orders.filter(o => o.status !== 'Huỷ');
+  const since = live.map(o => o.createdAt).filter(Boolean).sort()[0] || '';
+  let res;
+  try { res = await api('importMb51', rows, since); }
+  catch (e) { throw /Không có hàm|importMb51|is not a function/i.test(String(e)) ? 'Google Sheet chưa có bản Code.gs mới. Chị dán Code.gs mới vào Apps Script, Ctrl + S, chạy setup rồi Deploy → New version.' : e; }
+  const all = res.rows || [];
+  const perBoxMb = learnPerBox(all);
+  // Mã hàng SAP còn trống: tìm theo mã hàng trong mô tả MB51 (8080PHARAON006-H+ ...)
+  const byCode = {};
+  all.forEach(r => (r.desc.match(/\b\d{4}[A-Z]{2,}[A-Z0-9]*\d(?:-[A-Z0-9+]+)*/gi) || []).forEach(t => { byCode[t.toUpperCase()] = r.material; byCode[t.toUpperCase().replace(/-.*$/, '')] = byCode[t.toUpperCase().replace(/-.*$/, '')] || r.material; }));
+  const changed = new Map();
+  live.forEach(o => { if (!o.codeSap && byCode[String(o.code).toUpperCase()]) { o.codeSap = byCode[String(o.code).toUpperCase()]; changed.set(o.id, o); } });
+  // Đổi số lượng đơn ↔ ĐVT gốc MB51 (thường là viên)
+  const cvOf = (o) => { const c = convOf(o); return { perBox: c.perBox || perBoxMb[stripZero(o.codeSap)] || 0, m2PerBox: c.m2PerBox }; };
+  const toBase = (o, q) => {
+    const k = unitKind(o.unit), c = cvOf(o);
+    if (k === 'box') return c.perBox ? q * c.perBox : null;
+    if (k === 'm2') return c.perBox && c.m2PerBox ? q / c.m2PerBox * c.perBox : null;
+    return q; // viên, bao, cái...: cùng đơn vị gốc
+  };
+  // Gom các lần xuất theo khách + mã, cũ trước
+  const issues = {};
+  all.forEach(r => {
+    const k = stripZero(r.customer) + '|' + stripZero(r.material);
+    (issues[k] = issues[k] || []).push({ date: r.date, left: -Number(r.qty) || 0 });
+  });
+  Object.values(issues).forEach(list => {
+    list.sort((a, b) => a.date.localeCompare(b.date));
+    // Huỷ xuất (602, SL dương) trừ vào lần xuất gần nhất trước nó
+    list.forEach((x, i) => { if (x.left < 0) { for (let j = i - 1; j >= 0 && x.left < 0; j--) { const t = Math.min(list[j].left, -x.left); if (t > 0) { list[j].left -= t; x.left += t; } } x.left = 0; } });
+  });
+  const report = [];
+  let skipped = 0;
+  live.filter(o => o.customerSap && o.codeSap).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)) || String(a.pickupDate).localeCompare(String(b.pickupDate)))
+    .forEach(o => {
+      const list = issues[stripZero(o.customerSap) + '|' + stripZero(o.codeSap)];
+      if (!list) return;
+      const need = toBase(o, Number(o.qty) || 0);
+      if (need === null) { skipped++; return; }
+      let got = 0;
+      for (const x of list) {
+        if (got >= need - 1e-9) break;
+        if (x.left <= 0 || (o.createdAt && x.date < o.createdAt)) continue;
+        const t = Math.min(x.left, need - got); x.left -= t; got += t;
+      }
+      if (got <= 0) return;
+      const picked = Math.round(Math.min(Number(o.qty), got / (need / Number(o.qty))) * 1000) / 1000;
+      if (picked > (Number(o.picked) || 0) + 1e-9) {
+        report.push({ o, before: Number(o.picked) || 0, after: picked });
+        o.picked = picked; o.status = calcOrderStatus(o); changed.set(o.id, o);
+      }
+    });
+  const missing = live.filter(orderOpen).filter(o => !o.customerSap || !o.codeSap).length;
+  if (changed.size) {
+    st.textContent = 'Đang cập nhật đơn...';
+    const list = [...changed.values()].map(o => ({ ...o, perBox: cvOf(o).perBox || undefined }));
+    const saved = await api('saveOrders', list);
+    saved.forEach(sv => { const i = S.orders.findIndex(x => x.id === sv.id); if (i >= 0) S.orders[i] = sv; });
+    rememberCatalog(list);
+  }
+  st.textContent = `✓ Đã lưu ${res.added} dòng MB51 mới vào sheet MB51${res.added < rows.length ? ` (${rows.length - res.added} dòng đã nhập trước đó, không cộng lại)` : ''}.`;
+  $('mbResult').innerHTML = (report.length ? `<b>Cập nhật SL đã lấy cho ${report.length} dòng đơn:</b>
+    <table class="mb-table"><tr><th>Khách</th><th>Mã hàng</th><th>Đã lấy</th><th></th></tr>${report.map(r => `<tr><td>${esc(r.o.customer)}</td><td>${esc(r.o.code)}</td>
+    <td>${fmtQty(r.before)} → <b>${fmtQty(r.after)}</b> / ${fmtQty(r.o.qty)} ${esc(r.o.unit)}</td><td>${r.after >= r.o.qty ? '✅' : '⏳'}</td></tr>`).join('')}</table>`
+    : '<div>Chưa có đơn nào khớp với số liệu xuất mới.</div>')
+    + (missing ? `<div class="t-sub" style="margin-top:10px">⚠️ ${missing} dòng đơn chưa lấy còn thiếu code khách hoặc mã hàng SAP nên chưa khớp được. Chị điền 2 mã này trong đơn (app nhớ cho lần sau).</div>` : '')
+    + (skipped ? `<div class="t-sub" style="margin-top:6px">⚠️ ${skipped} dòng tính theo thùng/m² nhưng chưa biết số viên/thùng hoặc m²/thùng.</div>` : '');
+  render();
+}
+
 /* ---------- Đọc chữ từ ảnh (Tesseract.js, chạy ngay trên trình duyệt) ---------- */
 let ocrLib = null;
 function loadOcr() {
@@ -2033,7 +2250,7 @@ async function readPdfs(files) {
   } catch (e) { st.textContent = 'Lỗi đọc PDF: ' + (e.message || e); }
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeForm(); closePaste(); closeOrder(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeForm(); closePaste(); closeOrder(); closeMb51(); } });
 init();
 </script>
 </body>

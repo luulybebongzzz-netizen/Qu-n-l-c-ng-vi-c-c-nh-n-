@@ -9,6 +9,7 @@ const SHEET_SETTINGS = 'CaiDat';
 const SHEET_ORDERS = 'DonHang';
 const SHEET_CUSTOMERS = 'KhachHang';
 const SHEET_ITEMS = 'MaHang';
+const SHEET_MB51 = 'MB51';
 
 const TASK_HEADERS = [
   'ID', 'Tiêu đề', 'Mô tả', 'Trạng thái', 'Ưu tiên', 'Người phụ trách',
@@ -23,6 +24,8 @@ const ORDER_HEADERS = [
 // Danh mục: app tự thêm / cập nhật khi lưu đơn, chị cũng có thể sửa tay trong sheet
 const CUSTOMER_HEADERS = ['Khách hàng', 'Mã KH SAP', 'Kho nhận mặc định', 'Cập nhật lúc'];
 const ITEM_HEADERS = ['Mã hàng', 'Mã hàng SAP', 'ĐVT', 'Viên/thùng', 'm²/thùng', 'Cập nhật lúc'];
+// Dữ liệu MB51 đã nhập (chỉ giữ xuất cho khách 601 / huỷ xuất 602), mỗi dòng chứng từ một lần
+const MB51_HEADERS = ['Chứng từ', 'Dòng', 'Ngày', 'Kho', 'Mã SAP', 'Mô tả', 'Lô', 'SL (ĐVT gốc)', 'ĐVT gốc', 'SL nhập', 'ĐVT nhập', 'Loại', 'Khách', 'Sales order'];
 const MEMBER_HEADERS = ['Tên', 'Email', 'Vai trò'];
 const SETTING_HEADERS = ['Loại', 'Giá trị', 'Màu'];
 
@@ -51,7 +54,7 @@ function doGet() {
  * API JSON cho giao diện chạy ngoài Apps Script (GitHub Pages).
  * Gửi POST với body dạng text: {"fn": "saveTask", "args": [...]}
  */
-const API_FUNCTIONS = { getInitialData, getTasks, saveTask, updateStatus, deleteTask, getOrders, saveOrders, deleteOrder, getCatalog };
+const API_FUNCTIONS = { getInitialData, getTasks, saveTask, updateStatus, deleteTask, getOrders, saveOrders, deleteOrder, getCatalog, importMb51, getMb51 };
 
 function doPost(e) {
   let out;
@@ -87,6 +90,7 @@ function setup_() {
   ensureSheet_(ss, SHEET_ORDERS, ORDER_HEADERS);
   ensureSheet_(ss, SHEET_CUSTOMERS, CUSTOMER_HEADERS);
   ensureSheet_(ss, SHEET_ITEMS, ITEM_HEADERS);
+  ensureSheet_(ss, SHEET_MB51, MB51_HEADERS);
   const members = ensureSheet_(ss, SHEET_MEMBERS, MEMBER_HEADERS);
   const settings = ensureSheet_(ss, SHEET_SETTINGS, SETTING_HEADERS);
   if (settings.getLastRow() === 1) {
@@ -273,6 +277,38 @@ function upsertCatalog_(orders) {
     });
     if (appended.length) sh.getRange(sh.getLastRow() + 1, 1, appended.length, width).setValues(appended);
   });
+}
+
+/* ---------- MB51 ---------- */
+
+/** Thêm các dòng MB51 chưa có (theo Chứng từ + Dòng), trả về số dòng mới và toàn bộ dữ liệu từ ngày `since` */
+function importMb51(rows, since) {
+  return withLock_(() => {
+    const sh = ensureSheet_(SpreadsheetApp.getActive(), SHEET_MB51, MB51_HEADERS);
+    const have = new Set(readRows_(sh).map(r => r[0] + '|' + r[1]));
+    const add = [];
+    (rows || []).forEach(r => {
+      const k = String(r.doc) + '|' + String(r.item);
+      if (!r.doc || have.has(k)) return;
+      have.add(k);
+      add.push([String(r.doc), String(r.item), String(r.date || ''), String(r.plant || ''), String(r.material || ''), r.desc || '', String(r.batch || ''),
+        Number(r.qty) || 0, r.baseUnit || '', Number(r.qtyEntry) || 0, r.unitEntry || '', String(r.mvt || ''), String(r.customer || ''), String(r.so || '')]);
+    });
+    if (add.length) {
+      sh.getRange(sh.getLastRow() + 1, 1, add.length, MB51_HEADERS.length).setNumberFormat('@').setValues(add);
+    }
+    return { added: add.length, rows: getMb51(since) };
+  });
+}
+
+function getMb51(since) {
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_MB51);
+  const from = since || '';
+  return readRows_(sh).map(r => ({
+    doc: String(r[0]), item: String(r[1]), date: toDateStr_(r[2]) || String(r[2]), plant: String(r[3]), material: String(r[4]), desc: String(r[5]),
+    batch: String(r[6]), qty: Number(r[7]) || 0, baseUnit: String(r[8]), qtyEntry: Number(r[9]) || 0, unitEntry: String(r[10]),
+    mvt: String(r[11]), customer: String(r[12]), so: String(r[13])
+  })).filter(r => !from || r.date >= from);
 }
 
 function deleteOrder(id) {
